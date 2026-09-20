@@ -1,34 +1,91 @@
 # Sporttag
 
-A production-oriented Expo application sharing one TypeScript codebase across iOS, Android, and the web. It uses Expo Router for native navigation and Supabase for authentication and backend services.
+Eine gemeinsame Expo-Anwendung für iOS, Android und Web zur Planung und Durchführung von Sporttagen auf Jugendfreizeiten. Sie richtet sich an **Stationsmanager und das Backoffice** und muss nach einmaliger Vorbereitung ohne Internet funktionieren.
 
-## Requirements
+## Zuerst lesen
 
-- Node.js 20.19 or later and npm
-- An Expo account and the Expo CLI (`npx expo` is sufficient locally)
-- A Supabase project
-- An Apple Developer account for App Store distribution
-- A Google Play Developer account for Play Store distribution
+Für Agents gelten die Arbeitsregeln in [AGENTS.md](AGENTS.md), einschließlich der Pflicht, diese README und alle drei Konzepte vor der Arbeit vollständig zu lesen.
 
-## Local setup
+| Dokument | Inhalt |
+|---|---|
+| [Frontend-Architektur](docs/frontend-architektur.md) | Stack, gluestack-ui/NativeWind-Designsystem, Context7-Dokumentation, native Navigation, Plattformfunktionen und Figma-Regeln |
+| [Datenkonzept und ER-Modell](docs/datenkonzept.md) | Entitäten, Wertung, Codezugang, Check-ins, Offline-Synchronisierung, Karte und Werkzeuge |
+| [Designsystem und Referenzen](docs/design-system.md) | Verbindliche Farbpalette, Layout-/Komponentenstil und vier gesicherte Originalbilder |
+| [Agent-Arbeitsregeln](AGENTS.md) | Pflichtlektüre, verbindliche Leitlinien, Verifikation und Dokumentationspflege |
+
+## Produkt und Ablauf
+
+Stationsmanager geben einen gemeinsamen Veranstaltungscode ein und benötigen keinen persönlichen Account. Nach dem vorbereitenden Download wählen sie Station, Block und Betreuung, orientieren sich auf der gespeicherten Satellitenübersicht, checken ein und öffnen ihre Matches, Regeln und lokalen Werkzeuge.
+
+Das separat geschützte Backoffice verwaltet Veranstaltungen, Teams, feste Stationsstandorte, Spiele, Blöcke, Runden, Betreuung und konfigurierbare Tabellenpunkte. Mehrere Personen dürfen dieselbe Station betreuen. Mehrteamspiele sind optional; ein Abschlussspiel ist nicht vorgeschrieben. Öffentliche Teilnehmeransichten gehören derzeit nicht zum App-Umfang.
+
+Ergebnisse sollen zuerst dauerhaft lokal gesichert und bei Verbindung automatisch synchronisiert werden. Ein vollständiger Abgleich erst am Ende muss möglich sein. Realtime ist eine Ergänzung. Die optionale ntfy-Hilfeaktion benötigt Verbindung und zeigt ihren Versandstatus ausdrücklich an.
+
+## Architekturvorgaben
+
+- **React Native, Expo und TypeScript** für eine gemeinsame Anwendung.
+- **Expo Router** mit nativer Navigation und plattformgerechtem Verhalten.
+- **Natives Liquid Glass auf unterstützten iOS-Versionen**, integriert mit gluestack-ui und bei Bedarf `expo-glass-effect`; passende Fallbacks auf anderen Plattformen.
+- **gluestack-ui als Komponentenbasis und NativeWind für Styling**, angepasst an das gemeinsame Designsystem. Aktuelle Dokumentation über Context7: `/gluestack/gluestack-ui`.
+- **React Native Web / Expo Web** für Web und das responsive Backoffice.
+- **Supabase** als Backend und **EAS** für native Builds.
+- Figma liefert **UX-Struktur und Absicht**, keine pixelgenaue Kopiervorlage.
+
+Gemeinsame visuelle Identität und gezielte native Plattformfähigkeiten gehören zusammen. shadcn/ui ist kein primäres UI-Framework.
+
+## Tatsächlicher Implementierungsstand
+
+Das Repository enthält bislang ein Expo-Grundgerüst mit Router, Login-/Session-Grundlagen, Supabase-Client, einfachen Screens, Theme und EAS-Konfiguration. Die vorhandenen Tabs verwenden derzeit `Tabs` aus Expo Router; die gewünschte native Tab-Umsetzung ist damit noch nicht als fertig nachgewiesen.
+
+Die Docs beschreiben die Zielarchitektur. **NativeWind ist noch nicht installiert; gluestack-ui-Komponenten wurden noch nicht übernommen.** Das fachliche Datenbankschema, Codebeitritt, Stationsbetrieb, Satellitenkarte, lokale Werkzeuge, ntfy-Integration und robuste Offline-Ergebnissicherung sind noch nicht implementiert. Der bisherige Login-Flow ist ein Starter und entspricht noch nicht dem vorgesehenen Codezugang.
+
+Dieses Grundgerüst ist noch keine für den Offline-Einsatz geprüfte Sporttag-App.
+
+## Projektstruktur
+
+```text
+app/                     Expo-Router-Routen und Layouts
+components/ui/           bisherige UI-Grundlagen und Theme
+components/platform/     bisherige plattformspezifische Oberfläche
+providers/               Session-Verwaltung
+hooks/                   gemeinsame Hooks
+lib/                     unter anderem Supabase-Client
+docs/                    Frontend- und Datenkonzept
+AGENTS.md                Arbeitsregeln für Agents
+```
+
+Die geplante Komponentenstruktur unter `components/ui/` und `components/layout/` steht im Frontend-Konzept. Bestehende Starter-Komponenten werden bei Umsetzung passend weiterentwickelt.
+
+## Lokale Einrichtung
+
+Benötigt werden eine zum verwendeten Expo-SDK passende Node.js-Version, npm und für Backend-Funktionen ein Supabase-Projekt. Der konfigurierte Paketstand steht in [package.json](package.json).
+
+Abhängigkeiten installieren:
 
 ```bash
-git clone <repository-url>
-cd sporttag
 npm install
+```
+
+Sofern noch keine lokale `.env` existiert, aus der Vorlage anlegen:
+
+```bash
 cp .env.example .env
 ```
 
-Set these values in `.env`, using your Supabase project's Connect settings:
+Die Vorlage verwendet derzeit diese Variablennamen:
 
 ```dotenv
 EXPO_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
-Only publishable client credentials belong in `EXPO_PUBLIC_*` variables. Never add a Supabase service-role key to this app.
+In `EXPO_PUBLIC_*` gehören ausschließlich für Clients bestimmte Konfigurationswerte und öffentliche Client-Schlüssel. Service-Role-Schlüssel und private Tokens bleiben serverseitig. Reale Zugangsdaten nicht committen.
 
-## Run
+Das Eintragen einer Projekt-URL richtet das im Datenkonzept beschriebene Schema und dessen Zugriffsregeln noch nicht ein.
+
+## Entwicklung und Prüfungen
+
+Vorhandene Startkommandos:
 
 ```bash
 npm run start
@@ -37,31 +94,27 @@ npm run android
 npm run web
 ```
 
-Run checks with `npm run lint`, `npm run typecheck`, and `npm run web:export`.
-
-## Architecture
-
-- `app/` contains file-based routes. `(auth)` owns signed-out screens and `(app)` owns authenticated tabs.
-- `providers/SessionProvider.tsx` restores and observes the Supabase session; the root layout protects the route groups.
-- `lib/supabase.ts` configures Supabase Auth persistence with AsyncStorage on native and browser storage on web. It is ready for Postgres, Storage, and Realtime use through the exported client.
-- `components/platform/PlatformSurface.tsx` centralizes platform presentation. On iOS systems that expose Apple's Liquid Glass API it uses Expo's native `GlassView`; elsewhere it uses a tokenized platform-appropriate surface.
-- `components/ui/theme.ts` contains the compact semantic color token set, derived from the system theme.
-
-The app uses Expo Router's native stack and tab primitives. iOS 26 navigation chrome receives the system Liquid Glass treatment automatically; Android retains its native Material-style navigation behavior; the web layout applies a readable desktop width constraint.
-
-## Expo Go and development builds
-
-Expo Go is fine for this starter and for testing Expo SDK APIs included by Expo Go. Use a development build when adding custom native modules, modifying native configuration, testing native app entitlements, or validating the same binary configuration you will submit. Create one with `eas build --profile development --platform ios` or `android`.
-
-## Production builds
-
-Install and authenticate EAS CLI (`npm install --global eas-cli`, then `eas login`), configure identifiers in `app.json`, and connect the project with `eas init`. Then build:
+Vorhandene Prüfkommandos:
 
 ```bash
+npm run lint
+npm run typecheck
+npm run web:export
+```
+
+Der Webexport wird nach `dist/` geschrieben. Diese Kommandos ersetzen keine Gerätetests für Offline-Speicherung, Wiederherstellung und Synchronisierung. Die vorgesehenen Abnahmeszenarien stehen im Datenkonzept. Ihre Dokumentation bedeutet nicht, dass sie bereits implementiert oder bestanden sind.
+
+## Native Builds und Veröffentlichung
+
+[eas.json](eas.json) enthält die Profile `development`, `preview` und `production`. Für EAS-Builds sind EAS CLI, ein angemeldetes Expo-Konto und eine passende Projektkonfiguration erforderlich. Projekt- und App-Kennungen vor dem ersten Build prüfen.
+
+```bash
+eas build --profile development --platform ios
+eas build --profile development --platform android
 eas build --profile production --platform ios
 eas build --profile production --platform android
 ```
 
-Use `eas submit --platform ios` or `eas submit --platform android` after configuring store credentials. `eas.json` also defines development and internal preview profiles.
+Für native Module und realistische Gerätetests passende Development Builds verwenden. Eignung für Expo Go hängt von den tatsächlich verwendeten Modulen ab.
 
-For web, create static assets with `npm run web:export` and deploy the resulting `dist/` directory to a static host. Set a production web origin in Expo Router configuration if the app later needs absolute URLs or advanced web deployment behavior.
+Store-Veröffentlichungen erfordern die jeweiligen Apple-/Google-Zugänge und Konfiguration. EAS Submit und Web-Deployment sind separate Schritte; das Vorhandensein dieser Anleitung ist kein Auftrag zur Veröffentlichung.
