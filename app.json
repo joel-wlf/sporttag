@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Sporttag",
+    "slug": "sporttag",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "sporttag",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": true },
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.example.sporttag" },
+    "android": { "package": "com.example.sporttag", "edgeToEdgeEnabled": true },
+    "web": { "bundler": "metro", "output": "single" }
+  }
+}
