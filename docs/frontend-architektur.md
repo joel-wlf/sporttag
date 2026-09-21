@@ -2,7 +2,7 @@
 
 Stand: 20.09.2026 · Verbindliche Vorgaben aus dem UI-Handover
 
-Dieses Dokument ersetzt die vorherige Empfehlung, das gemeinsame Designsystem primär mit React Native `StyleSheet` umzusetzen. Es beschreibt die Zielarchitektur; die technische Umstellung ist noch nicht implementiert. Das übermittelte Handover endet bei `components/layout/Header.tsx`; weitere nicht übermittelte Vorgaben werden nicht vorausgesetzt.
+Dieses Dokument ersetzt die vorherige Empfehlung, das gemeinsame Designsystem primär mit React Native `StyleSheet` umzusetzen. Es beschreibt die Zielarchitektur; die technische Umstellung ist begonnen. NativeWind und gluestack-ui sind installiert, und die gemeinsamen Komponenten unter `components/ui/` und `components/layout/` sind angelegt. Das übermittelte Handover endet bei `components/layout/Header.tsx`; weitere nicht übermittelte Vorgaben werden nicht vorausgesetzt.
 
 ## Leitprinzipien
 
@@ -32,13 +32,21 @@ gluestack stellt anpassbare Komponentenquellen bereit. Nur benötigte Bausteine 
 
 Vor Integration oder Änderung die aktuellen Dokumente über **Context7** abfragen: `/gluestack/gluestack-ui`. Versionsspezifische Dokumentation verwenden und bei Lücken offizielle Quellen ergänzen. Das bestehende Expo-Projekt schrittweise integrieren, nicht durch einen neuen Starter ersetzen.
 
-**Versionswahl noch offen:** Die recherchierte v5-Dokumentation nennt Einschränkungen im Web-Unterbau mit NativeWind v5. Deshalb nicht ungeprüft `latest` übernehmen. Zuerst einen kleinen Screen mit Button, Eingabe, Auswahl und Modal auf iOS, Android und Expo Web prüfen, einschließlich Tastaturbedienung, Fokus und nativer Integration. Erst nach diesem Test die konkrete Paketkombination festschreiben. Dieser Test ist vereinbart, noch nicht ausgeführt. [Installationshinweise v5](https://v5.gluestack.io/ui/docs/home/getting-started/installation)
+**Eingesetzte Versionen:** Die recherchierte v5-Dokumentation nennt Einschränkungen im Web-Unterbau mit NativeWind v5. Im Projekt sind deshalb feste, zueinander passende Versionen eingetragen: `nativewind` `5.0.0-preview.4` mit `react-native-css` `3.0.4`, Tailwind CSS `4.2.0` und `@gluestack-ui/core` `5.0.15`. Der Webexport (`npm run web:export`) baut mit dieser Kombination erfolgreich. Der vereinbarte Prüfschritt auf iOS und Android, einschließlich Tastaturbedienung, Fokus und nativer Integration, ist noch nicht ausgeführt; die Kombination ist daher noch nicht für alle Plattformen als abgenommen dokumentiert. [Installationshinweise v5](https://v5.gluestack.io/ui/docs/home/getting-started/installation)
 
 Gemeinsame visuelle Identität und Informationsarchitektur bleiben maßgeblich; gluestack ersetzt weder Expo Router noch die Offline-Datenschicht.
+
+### Datenschicht des Backoffice
+
+`@tanstack/react-query` (`providers/QueryProvider.tsx`) verwaltet Cache, Ladezustände und Invalidierung für alle Backoffice-Screens; kleine typisierte Funktionen plus Hooks je Domäne liegen unter `lib/api/` (`events`, `settings`, `teams`, `games`, `stations`, `staff`, `schedule`, `templates`), Postgres-/PostgREST-Fehler werden in `lib/api/errors.ts` in deutsche Meldungen übersetzt. `providers/ActiveEventProvider.tsx` hält die aktuell gewählte Veranstaltung (persistiert in AsyncStorage) und liefert sie über `useActiveEvent()`; `components/backoffice/RequireEvent.tsx` blendet einen Leerzustand ein, solange keine Veranstaltung gewählt ist. `lib/database.types.ts` wird über die Supabase-MCP-Tools (`generate_typescript_types`) generiert und nicht von Hand gepflegt.
+
+Anlegen und Bearbeiten läuft über `components/ui/FormSheet.tsx` (modales Formularblatt statt eigener Editor-Route) und `components/ui/ConfirmDialog.tsx` für bestätigungspflichtige Aktionen; beide sind plattformübergreifend über React Natives `Modal` umgesetzt, nicht über gluestack-Overlays. Formularkomponenten, die ihren Zustand aus einer bearbeiteten Datenbankzeile ableiten, tun das über einen von der Elternkomponente vergebenen `key` (z. B. `key={team?.id ?? 'new'}`) und `useState`-Lazy-Initializer statt über `useEffect` plus `setState`, wie es die ESLint-Regel `react-hooks/set-state-in-effect` verlangt.
 
 ## Navigation
 
 Route-Hierarchie und Informationsarchitektur bleiben gemeinsam. Expo Router organisiert Codebeitritt, Stationswahl, Geländeübersicht, Stationsbetrieb, Matches und das getrennt geschützte Backoffice.
+
+Das Backoffice ist nach dem Event-Lebenszyklus gegliedert: konfigurieren → planen → veröffentlichen → betreiben → abgleichen. Die geplanten Module sind Event-Portfolio, Event-Übersicht, Planung (Teams, Spiele & Wertung, Gelände & Stationen, Zeitplan & Matches, Betreuung), Freigabe & Veröffentlichung, Live-Betrieb, Ergebnisse & Tabelle, Geräte & Synchronisierung, Event-Einstellungen, Spielvorlagen und Konto. Die Navigation steht gruppiert in `components/layout/navigation.ts`. Auf breiten Bildschirmen rendert die Shell eine seitliche Navigation. Auf iOS und Android verwendet die Tab-Leiste `expo-router/unstable-native-tabs` mit SF Symbols beziehungsweise Material Symbols; im Web kommt die JS-Tab-Leiste von Expo Router zum Einsatz. Die sichtbaren Bereiche sind Events, Planung, Live, Ergebnis und Mehr; Übersicht, Freigabe, Geräte, Event-Einstellungen, Spielvorlagen und Konto liegen im verschachtelten `more/`-Stack, weil native Tabs keine versteckten, aber navigierbaren Ziele unterstützen. Freigabe, Ergebnisabgleich und Gerätevollständigkeit bleiben eigenständige Module statt verteilter Schaltflächen in CRUD-Screens. Die Event-Kontext-Route (`[eventId]`) folgt mit dem Event-Portfolio und den Mitgliedschaften. `unstable-native-tabs` ist als instabile API gekennzeichnet; die native Tab-Leiste wurde per Bundle-Export, aber noch nicht auf einem Gerät geprüft. Der Stationsbetrieb liegt in einer separaten Gruppe `(station)`, die ohne Organisatoren-Sitzung erreichbar ist und den Standard-Einstieg der App bildet. Angemeldet wird sich als **Person** (Name aus der Betreuungsliste), nicht als Station. Der Ablauf ist: Veranstaltungscode → eigenen Namen wählen → **Tagesplan als Home** mit allen Blöcken und Pausen, auch an anderen Stationen → Check-in/Check-out je Block → Geländeübersicht, die nur die eigene Zielstation groß zeigt → Cockpit mit Matches, Regeln, Sync und Hilfe; das Backoffice ist von dort erreichbar. Es kann immer nur ein Check-in gleichzeitig aktiv sein. Station und Spiel können je Block wechseln. Check-ins, Matchstatus und angenommene Ergebnisse werden über Supabase Realtime live aktualisiert, damit mehrere Stationsleiter an derselben Station jeweils ihr eigenes Gerät nutzen und denselben Stand sehen; Realtime ergänzt die Offline-Synchronisierung und ersetzt sie nicht. Dieses Grundgerüst verwendet dieselben Design-Tokens und Komponenten, enthält aber noch keine Daten- oder Offline-Logik.
 
 - Native Stack-Navigation, native Übergänge und native Tabs werden bevorzugt, soweit für den jeweiligen Einsatz verfügbar und passend.
 - iOS erhält unter anderem das native Zurückwischen und passende native Sheets.
@@ -65,19 +73,26 @@ components/
     Avatar.tsx
     GlassSurface.tsx
     EmptyState.tsx
+    ListRow.tsx
+    StatCard.tsx
+    Icon.tsx
+    theme.ts
   layout/
     Screen.tsx
     Section.tsx
     Header.tsx
+    ModuleScreen.tsx
+    navigation.ts
+    BackofficeShell.tsx
 ```
 
-Diese Struktur verwendet die vorgeschlagenen Bausteine aus dem Handover und integriert passende gluestack-Komponenten unter `components/ui/`. `components/ui/` stellt die gemeinsamen Projektkomponenten bereit und verwendet beziehungsweise exportiert passende gluestack-ui-Bausteine, ohne identische Komponenten doppelt zu implementieren. Weitere Komponenten werden bei konkretem Bedarf ergänzt. Plattformdateien wie `.ios.tsx`, `.android.tsx` oder `.web.tsx` sind für gezielte Unterschiede möglich; ihre gemeinsame Schnittstelle bleibt gleich.
+Diese Struktur verwendet die vorgeschlagenen Bausteine aus dem Handover und integriert passende gluestack-Komponenten unter `components/ui/`. Sie ist angelegt. `components/ui/` stellt die gemeinsamen Projektkomponenten bereit und verwendet beziehungsweise exportiert passende gluestack-ui-Bausteine, ohne identische Komponenten doppelt zu implementieren. `Button` und `Input` bauen auf den gluestack-ui-Creatorn auf, `Icon` nutzt das bereits vorhandene `react-native-svg`. `ModuleScreen` stellt die geplanten Backoffice-Module als gekennzeichnete Platzhalter dar. Weitere Komponenten werden bei konkretem Bedarf ergänzt. Plattformdateien wie `.ios.tsx`, `.android.tsx` oder `.web.tsx` sind für gezielte Unterschiede möglich; ihre gemeinsame Schnittstelle bleibt gleich.
 
 **iOS soll gluestack-ui mit echtem nativem Liquid Glass verwenden.** `GlassSurface` ist eine gemeinsame Komponente mit plattformgeeigneter Darstellung. Auf unterstützten iOS-Versionen wird der native Effekt gezielt für Navigation und geeignete schwebende Bedienelemente eingesetzt. Andere Plattformen und ältere iOS-Versionen erhalten eine zur selben Gestaltung passende Oberfläche. Inhalte, Hierarchie und Bedienung bleiben gemeinsam.
 
 gluestack-ui-Komponenten sind nicht automatisch sämtlich Liquid-Glass-Komponenten. Native Tabs und Stack-Navigation bleiben bei Expo Router; inhaltliche Tabs aus einer Komponentenbibliothek ersetzen keine native App-Navigation. Zusätzliche Glasoberflächen werden über `expo-glass-effect` integriert; Expo SDK 57 dokumentiert dafür native `GlassView`-Unterstützung ab iOS 26. Verfügbarkeit, Bedienungshilfen und Fallback werden zur Laufzeit berücksichtigt. Ein gewöhnlicher Blur oder eine halbtransparente Fläche ist kein Nachweis für natives Liquid Glass. [Expo GlassEffect](https://docs.expo.dev/versions/v57.0.0/sdk/glass-effect/)
 
-Liquid Glass ersetzt nicht jede Inhaltsfläche: Spielstände, Texte und Eingaben müssen insbesondere draußen gut lesbar bleiben. Gemeinsame Tokens und gluestack-ui-Komponentenschnittstellen gelten weiterhin. Der bereits vorhandene `expo-glass-effect`-Eintrag und `PlatformSurface` sind ein Ausgangspunkt, keine abgeschlossene Integration.
+Liquid Glass ersetzt nicht jede Inhaltsfläche: Spielstände, Texte und Eingaben müssen insbesondere draußen gut lesbar bleiben. Gemeinsame Tokens und gluestack-ui-Komponentenschnittstellen gelten weiterhin. Der vorhandene `expo-glass-effect`-Eintrag ist über `GlassSurface` angebunden und wird für die breite Sidebar verwendet; die native Tab-Leiste selbst stammt aus `unstable-native-tabs`. Eine vollständige Integration auf allen Geräten ist damit noch nicht nachgewiesen.
 
 Dynamische Geometrie, beispielsweise transformierte Stationspins oder animierte Werte, kann ergänzend über berechnete Style-Props gesteuert werden. Das ersetzt NativeWind nicht als Stylingstandard.
 
@@ -108,7 +123,7 @@ Für native iOS-Konzepte stehen zusätzlich Apples UI-Kits über die [Apple Desi
 
 ## Anwendung auf den Sporttag
 
-Der bestätigte Stationsablauf bleibt: Veranstaltungscode → Station/Block und Betreuung wählen → Geländeübersicht → Check-in → Matches, Regeln und Werkzeuge → Ergebniserfassung.
+Der bestätigte Stationsablauf bleibt: Veranstaltungscode → eigenen Namen aus der Betreuungsliste wählen → Tagesplan (Home) mit allen Blöcken und Pausen → Check-in je Block an der Station → Geländeübersicht der Zielstation → Matches, Regeln und Werkzeuge → Ergebniserfassung.
 
 Auf Smartphones stehen große bedienbare Flächen, klare Spielstände und sichtbare Speicherzustände im Vordergrund. Das Backoffice nutzt auf breiten Bildschirmen mehr Platz für Planung, Tabellen und Karten. Beide verwenden dieselben Design-Tokens und geeignete gemeinsame Komponenten.
 
@@ -116,10 +131,12 @@ Die Oberfläche liest aus dem lokalen Datenmodell. Speichern, Wiederherstellung 
 
 Die Geländeübersicht und Stationspins funktionieren mit dem vorbereiteten Offline-Kartenmaterial. Eine plattformspezifische Kartenbearbeitung im Backoffice ist möglich, solange sie dieselben Stationskoordinaten und Kartenstände erzeugt.
 
+Umgesetzt ist die interaktive Planungskarte unter `components/map/` (`SatelliteMap.tsx` nativ über `@maplibre/maplibre-react-native`, `SatelliteMap.web.tsx` im Web über `maplibre-gl`, gemeinsame Typen/Geo-Hilfsfunktionen plattformneutral) mit Mapbox-Satellitenkacheln über `EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN`. `components/backoffice/planning/VenueMap.tsx` ergänzt die Bedienung: Gelände-Rechteck per zwei Kartentipps zeichnen (`events.venue_north/south/east/west`) und Stationen per Kartentipp platzieren, alternativ weiterhin manuelle Koordinateneingabe im Formular. Ohne konfiguriertes Token zeigt die Karte einen Hinweis statt zu laden oder abzustürzen.
+
 Native Möglichkeiten wie Haptik, System-Dateifreigabe für Sicherungspakete oder lokale Timer-Benachrichtigungen sind sinnvolle Kandidaten, aber durch dieses Architektur-Handover noch keine einzeln beauftragten Funktionen. Sie werden bei ihrer Umsetzung auf Plattformverfügbarkeit und Offline-Verhalten geprüft.
 
 ## Abgrenzung zum aktuellen Projektstand
 
-Expo Router, TypeScript, React Native Web und Supabase sind im vorhandenen Projekt bereits vorgesehen. NativeWind ist laut geprüftem `package.json` noch nicht installiert; gluestack-ui-Komponenten wurden noch nicht übernommen. Das bisherige Theme und `PlatformSurface` sind Ausgangspunkte für die spätere Überführung in das gemeinsame Designsystem.
+Expo Router, TypeScript, React Native Web, Supabase, NativeWind und gluestack-ui sind im vorhandenen Projekt installiert und konfiguriert. Die gemeinsamen Komponenten unter `components/ui/` und `components/layout/` sowie die semantischen Tokens in `global.css` sind angelegt; die Backoffice-Screens und der Login verwenden sie. Das Backoffice liest und schreibt inzwischen gegen das echte Supabase-Schema (Events anlegen/konfigurieren, vollständige Planung, Veröffentlichung); die interaktive Planungskarte (Gelände-Rechteck, Stationspins) ist umgesetzt, das Backen eines versionierten Offline-Kartenassets (`event_maps`) für den Stationsbetrieb sowie Live-Betrieb, Ergebnisse/Tabelle im UI und der clientseitige Gerätesync bleiben Platzhalter. Der Stationsbereich arbeitet weiterhin vollständig mit lokalen Platzhalterdaten. Native Gerätetests für die Versionskombination und die Offline-Sicherung stehen aus.
 
-Dieses Dokument bestätigt die Zielrichtung. Es nimmt keine Paketinstallation, SDK-Aktualisierung oder UI-Implementierung vor.
+Dieses Dokument beschreibt die Zielarchitektur und den erreichten Zwischenstand. Es nimmt keine Paketinstallation, SDK-Aktualisierung oder Deployment vor.

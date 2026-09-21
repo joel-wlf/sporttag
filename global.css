@@ -3,15 +3,81 @@
 @import "tailwindcss/utilities.css";
 @import "nativewind/theme";
 
-@theme {
+/*
+ * Gemeinsame Design-Tokens des Sporttag-Designsystems.
+ * Bestätigte Markenfarben: Primary #556B2F, Secondary #A9B58A, Accent #C59A4A, Muted #E3E5D8.
+ * Ergänzende semantische Tokens sind daraus abgeleitet (siehe docs/design-system.md).
+ * `static` hält alle Variablen verfügbar, damit die Dark-Overrides zur Laufzeit greifen.
+ */
+@theme static {
   --color-primary: #556b2f;
+  --color-primary-soft: #e3e5d8;
+  --color-on-primary: #ffffff;
   --color-secondary: #a9b58a;
   --color-accent: #c59a4a;
   --color-muted: #e3e5d8;
+
   --color-canvas: #f6f5ef;
   --color-surface: #ffffff;
+  --color-surface-muted: #f0f1e8;
   --color-ink: #22251f;
   --color-subtle: #6d7166;
   --color-line: #dfe1d6;
+
   --color-danger: #a33a32;
+  --color-danger-soft: #f7e5e1;
+  --color-success: #3f6b3a;
+  --color-success-soft: #e6efe1;
+  --color-warning: #8a651f;
+  --color-warning-soft: #f6ecd6;
+
+  /*
+   * Radius- und Typo-Skala: ein konsistentes Tokensystem statt ad-hoc
+   * arbiträrer Werte pro Komponente (siehe docs/design-system.md).
+   */
+  --radius-control: 16px;
+  --radius-card: 22px;
+  --radius-sheet: 28px;
+
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-stat: 40px;
+  --text-stat-lg: 56px;
+  --text-stat-xl: 72px;
+}
+
+/* Dark-Mode-Flächen werden separat entwickelt und hier als Tokens vorbereitet. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: #a9b58a;
+    --color-primary-soft: #343b29;
+    --color-on-primary: #1b1f14;
+    --color-secondary: #7f8e62;
+    --color-accent: #d5af67;
+    --color-muted: #2b2f24;
+
+    --color-canvas: #161812;
+    --color-surface: #21241c;
+    --color-surface-muted: #2b2f24;
+    --color-ink: #f6f5ef;
+    --color-subtle: #b8bcad;
+    --color-line: #3a4032;
+
+    --color-danger: #ff9188;
+    --color-danger-soft: #3a2320;
+    --color-success: #9ccf8f;
+    --color-success-soft: #24301f;
+    --color-warning: #e2be7a;
+    --color-warning-soft: #342c19;
+  }
+}
+
+/* Kein Gummiband-/Overscroll-Verhalten im Browser (Web). */
+html,
+body {
+  overscroll-behavior: none;
 }

@@ -3,9 +3,12 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router/react-naviga
 import { ActivityIndicator, View } from 'react-native';
 import { useEffect } from 'react';
 import { SessionProvider, useSession } from '@/providers/SessionProvider';
+import { ActiveEventProvider } from '@/providers/ActiveEventProvider';
+import { QueryProvider } from '@/providers/QueryProvider';
 import { useTheme } from '@/hooks/useTheme';
 import { palette } from '@/components/ui/theme';
 import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
+import { ensureProfile } from '@/lib/api/profile';
 import '@/global.css';
 
 function RouteGuard() {
@@ -15,18 +18,40 @@ function RouteGuard() {
   const theme = useTheme();
   const color = palette(theme);
   const inAuth = segments[0] === '(auth)';
+  const inStation = segments[0] === '(station)';
+  const inBackoffice = segments[0] === '(backoffice)';
+  const isOrganizer = Boolean(session) && !session?.user.is_anonymous;
 
   useEffect(() => {
     if (isLoading) return;
-    if (!session && !inAuth) router.replace('/login');
+    if (!session && !inAuth && !inStation) router.replace('/join');
     if (session && inAuth) router.replace('/');
-  }, [inAuth, isLoading, router, session]);
+    // Das Backoffice ist ausschließlich für persönliche Organisatorenkonten;
+    // eine anonyme Stationssitzung darf nicht hinein.
+    if (inBackoffice && session && !isOrganizer) router.replace('/login');
+  }, [inAuth, inBackoffice, inStation, isLoading, isOrganizer, router, session]);
 
-  if (isLoading) return <View style={{ flex: 1, justifyContent: 'center', backgroundColor: color.background }}><ActivityIndicator color={color.accent} /></View>;
-  return <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}><Stack.Screen name="(auth)" options={{ headerShown: false }} /><Stack.Screen name="(app)" options={{ headerShown: false }} /></Stack>;
+  useEffect(() => {
+    if (isOrganizer) void ensureProfile();
+  }, [isOrganizer]);
+
+  if (isLoading) return <View style={{ flex: 1, justifyContent: 'center', backgroundColor: color.background }}><ActivityIndicator color={color.primary} /></View>;
+  return <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}><Stack.Screen name="(auth)" options={{ headerShown: false }} /><Stack.Screen name="(backoffice)" options={{ headerShown: false }} /><Stack.Screen name="(station)" options={{ headerShown: false }} /></Stack>;
 }
 
 export default function RootLayout() {
   const theme = useTheme();
-  return <GluestackUIProvider><ThemeProvider value={theme === 'dark' ? DarkTheme : DefaultTheme}><SessionProvider><RouteGuard /></SessionProvider></ThemeProvider></GluestackUIProvider>;
+  return (
+    <GluestackUIProvider>
+      <ThemeProvider value={theme === 'dark' ? DarkTheme : DefaultTheme}>
+        <QueryProvider>
+          <SessionProvider>
+            <ActiveEventProvider>
+              <RouteGuard />
+            </ActiveEventProvider>
+          </SessionProvider>
+        </QueryProvider>
+      </ThemeProvider>
+    </GluestackUIProvider>
+  );
 }

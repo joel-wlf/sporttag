@@ -42,7 +42,7 @@ Die winzigen Bedienelemente der verkleinerten Referenzbilder sind keine Größen
 
 ## Bezug zur Technik und zu Liquid Glass
 
-Gewählte Komponentenbasis ist jetzt **gluestack-ui mit NativeWind**. Die vorherige NativeWindUI-Festlegung wird damit ersetzt. Vor der Integration bleibt der vereinbarte kleine Kompatibilitätstest auf iOS, Android und Expo Web erforderlich; eine konkrete Versionskombination ist noch nicht als geprüft festgelegt.
+Gewählte Komponentenbasis ist jetzt **gluestack-ui mit NativeWind**. Die vorherige NativeWindUI-Festlegung wird damit ersetzt. NativeWind und gluestack-ui sind installiert, und die verbindlichen Farben sind als semantische Tokens in `global.css` hinterlegt. Der vereinbarte kleine Kompatibilitätstest auf iOS und Android steht weiterhin aus; der Webexport baut mit der eingetragenen Paketkombination erfolgreich.
 
 Auf iOS bleibt echtes natives Liquid Glass für passende Navigation und schwebende Bedienelemente vorgesehen. Die weißen Inhaltskarten der Referenzen werden nicht pauschal zu Glasflächen. Markenfarben, Hierarchie und Komponentencharakter bleiben über Plattformen konsistent.
 

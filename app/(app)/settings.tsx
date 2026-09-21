@@ -1,8 +1,0 @@
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BackofficePage, backofficeStyles, SurfaceCard } from '@/components/backoffice/BackofficePage';
-import { palette } from '@/components/ui/theme';
-import { useTheme } from '@/hooks/useTheme';
-import { useSession } from '@/providers/SessionProvider';
-import { supabase } from '@/lib/supabase';
-export default function SettingsScreen() { const { session } = useSession(); const theme = useTheme(); const color = palette(theme); return <BackofficePage title="Einstellungen" eyebrow="BACKOFFICE" description="Konto und lokale Darstellung verwalten. Veranstaltungseinstellungen folgen nach Auswahl eines Events."><View style={backofficeStyles.grid}><View style={backofficeStyles.cardGrow}><SurfaceCard><Text style={[backofficeStyles.cardTitle, { color: color.text }]}>Darstellung</Text><Text style={{ color: color.muted }}>Plattform: {Platform.OS}</Text><Text style={{ color: color.muted }}>Farbschema: {theme} (System)</Text></SurfaceCard></View><View style={backofficeStyles.cardGrow}><SurfaceCard><Text style={[backofficeStyles.cardTitle, { color: color.text }]}>Organisator-Konto</Text><Text style={{ color: color.muted }}>{session?.user.email}</Text><Pressable accessibilityRole="button" onPress={() => supabase.auth.signOut()} style={({ pressed }) => [styles.button, { borderColor: color.danger }, pressed && { opacity: 0.68 }]}><Text style={{ color: color.danger, fontWeight: '700' }}>Abmelden</Text></Pressable></SurfaceCard></View></View></BackofficePage>; }
-const styles = StyleSheet.create({ button: { borderWidth: 1, borderRadius: 999, alignItems: 'center', padding: 12, marginTop: 8 } });

@@ -25,7 +25,7 @@ Fehlt ein erforderliches Dokument, benenne die Lücke und suche nach einer versc
 - Stationen haben feste Geo-Koordinaten pro Sporttag. Spiele und Betreuung können je Block wechseln.
 - Tabellenpunkte sind im Backoffice konfigurierbar. Unterschiedliche Spielpunkteskalen werden standardmäßig über Sieg/Unentschieden/Niederlage vergleichbar gemacht.
 - Mehrteamspiele mit eigener Platzierungswertung sind optional. Ein Abschlussspiel ist nicht vorgeschrieben.
-- ntfy-Topic ist im Backoffice einstellbar. Ein fehlgeschlagener oder mangels Verbindung unmöglicher Versand darf nicht als erfolgreich angezeigt werden.
+- Die Hilfeaktionen „Assistenz“ und „Medizinisch“ starten einen nativen Anruf auf konfigurierte Rufnummern. Ein nicht gestarteter Anruf darf nicht als erfolgreich angezeigt werden.
 
 Details und als Vorschläge markierte Entscheidungen stehen im Datenkonzept. Erkläre Vorschläge nicht stillschweigend zu bestätigten Anforderungen.
 

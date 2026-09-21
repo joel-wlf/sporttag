@@ -15,11 +15,11 @@ Für Agents gelten die Arbeitsregeln in [AGENTS.md](AGENTS.md), einschließlich 
 
 ## Produkt und Ablauf
 
-Stationsmanager geben einen gemeinsamen Veranstaltungscode ein und benötigen keinen persönlichen Account. Nach dem vorbereitenden Download wählen sie Station, Block und Betreuung, orientieren sich auf der gespeicherten Satellitenübersicht, checken ein und öffnen ihre Matches, Regeln und lokalen Werkzeuge.
+Stationsmanager geben einen gemeinsamen Veranstaltungscode ein und melden sich als Person an, nicht als Station: Sie wählen ihren Namen aus der Betreuungsliste. Der Startbildschirm ist der Tagesplan mit allen Blöcken und Pausen, auch an anderen Stationen. Check-in und Check-out erfolgen je Block an der Station (nur ein aktiver Check-in gleichzeitig); beim Einchecken zeigt die Geländeübersicht nur die eigene Zielstation auf einer großen Karte. Danach öffnen sie Matches, Regeln, Sync und Hilfe. Check-ins, Matchstatus und angenommene Ergebnisse sollen über Supabase Realtime live aktualisiert werden, damit mehrere Stationsleiter an derselben Station jeweils ihr eigenes Gerät nutzen können.
 
 Das separat geschützte Backoffice verwaltet Veranstaltungen, Teams, feste Stationsstandorte, Spiele, Blöcke, Runden, Betreuung und konfigurierbare Tabellenpunkte. Mehrere Personen dürfen dieselbe Station betreuen. Mehrteamspiele sind optional; ein Abschlussspiel ist nicht vorgeschrieben. Öffentliche Teilnehmeransichten gehören derzeit nicht zum App-Umfang.
 
-Ergebnisse sollen zuerst dauerhaft lokal gesichert und bei Verbindung automatisch synchronisiert werden. Ein vollständiger Abgleich erst am Ende muss möglich sein. Die App erhält Live-Updates über Supabase Realtime; Realtime ergänzt die persistente Synchronisierung und ersetzt sie nicht. Die optionale ntfy-Hilfeaktion benötigt Verbindung und zeigt ihren Versandstatus ausdrücklich an.
+Ergebnisse sollen zuerst dauerhaft lokal gesichert und bei Verbindung automatisch synchronisiert werden. Ein vollständiger Abgleich erst am Ende muss möglich sein. Die App erhält Live-Updates über Supabase Realtime; Realtime ergänzt die persistente Synchronisierung und ersetzt sie nicht. Die Hilfeaktion startet einen nativen Anruf auf konfigurierte Rufnummern und zeigt ehrlich an, ob der Anruf gestartet werden konnte.
 
 ## Architekturvorgaben
 
@@ -35,9 +35,11 @@ Gemeinsame visuelle Identität und gezielte native Plattformfähigkeiten gehöre
 
 ## Tatsächlicher Implementierungsstand
 
-Das Repository enthält ein Expo-Grundgerüst mit Router, Login-/Session-Grundlagen, Supabase-Client, einfachen Screens, Theme und EAS-Konfiguration. Das fachliche Supabase-Schema liegt als erste Migration unter `supabase/migrations/`; es umfasst RLS, versionierte Ergebnisabgaben, Ranglistenviews und die Realtime-Publication. Die vorhandenen Tabs verwenden derzeit `Tabs` aus Expo Router; die gewünschte native Tab-Umsetzung ist damit noch nicht als fertig nachgewiesen.
+Das Repository enthält ein Expo-Grundgerüst mit Router, Login-/Session-Grundlagen, Supabase-Client, Theme und EAS-Konfiguration. NativeWind und gluestack-ui sind installiert und bilden das gemeinsame Designsystem unter `components/ui/` und `components/layout/`. Das Backoffice ist entlang des Event-Lebenszyklus gegliedert (Events → Planung mit Teams, Spiele & Wertung, Gelände & Stationen, Zeitplan & Matches, Betreuung → Freigabe & Veröffentlichung → Live-Betrieb → Ergebnisse & Tabelle → Geräte & Synchronisierung sowie Spielvorlagen, Event-Einstellungen und Konto). Zusätzlich existiert unter `app/(station)/` ein ausgearbeitetes UI für die Stationsgeräte: Codebeitritt, Personenauswahl, Tagesplan als swipebarer Tagesüberblick mit vollständiger Zeitleiste, Geländeübersicht mit Check-in vor Ort und ein Cockpit mit Matches, Ergebniserfassung (Zählwert, Ausgang und Mehrteam-Platzierung), Werkzeugen, Regeln und echtem Sync-Status. Der Tagesplan zeigt alle Blöcke und Pausen einschließlich Blöcken ohne Einsatz; jeder Block bleibt unabhängig von der Uhrzeit auswählbar, sodass Verzögerungen und falsche Check-ins korrigierbar sind. Der Check-in liegt im `StationSessionProvider`: immer nur einer gleichzeitig, jederzeit wechselbar und über „Auschecken“ auf Tagesplan und Karte wieder lösbar. Der Stationsbereich ist bewusst minimalistisch gehalten: keine erklärenden Texte oder Entwicklungsstand-Badges auf den Screens, jede Fläche zeigt Daten oder eine Aktion. Das fachliche Supabase-Schema liegt als erste Migration unter `supabase/migrations/`; es umfasst RLS, versionierte Ergebnisabgaben, Ranglistenviews und die Realtime-Publication.
 
-Die Docs beschreiben die Zielarchitektur. **NativeWind ist noch nicht installiert; gluestack-ui-Komponenten wurden noch nicht übernommen.** Codebeitritt, Stationsbetrieb, Satellitenkarte, lokale Werkzeuge, ntfy-Integration, Realtime-Abonnements im Client und robuste Offline-Ergebnissicherung sind noch nicht implementiert. Der bisherige Login-Flow ist ein Starter und entspricht noch nicht dem vorgesehenen Codezugang.
+Das Backoffice ist jetzt an das echte Supabase-Schema angebunden (`@tanstack/react-query` über `lib/api/*`, `providers/ActiveEventProvider.tsx` für die ausgewählte Veranstaltung). Organisatoren können Veranstaltungen anlegen, Stammdaten und Status pflegen, einen Veranstaltungscode erzeugen/rotieren/widerrufen, Gerätezugänge widerrufen, weitere Organisatoren per E-Mail hinzufügen, Entwürfe löschen sowie den vollständigen Planungsweg bedienen: Teams, Wertungsregeln und Event-Spiele (inklusive Kopie aus der Spielvorlagen-Bibliothek), Stationen mit WGS84-Koordinaten, Blöcke/Runden/Stationsbelegungen/Matches mit Teamzuordnung, Betreuungszuordnung je Stationsbelegung, eine Bereitschaftsprüfung (`check_event_readiness`) und die Veröffentlichung (`publish_event`). Die Migration `supabase/migrations/20260921131505_backoffice_rpcs_full.sql` ergänzt dafür: automatische Profilanlage per Trigger auf `auth.users`, die Statusmaschine der Veranstaltung, Planungsintegrität (Blocküberschneidungen, Rundengrenzen, Team-Doppelbuchung je Runde, Sperre ergebnisrelevanter Felder nach Veröffentlichung), den per Vault-Secret gehashten Veranstaltungscode (`rotate_access_code`/`redeem_access_code` mit Rate-Limit) und `delete_draft_event`. Kartenmaterial (`event_maps`), Live-Betrieb, Ergebnisse/Tabelle im UI und der clientseitige Gerätesync-Bildschirm sind weiterhin Platzhalter; `redeem_access_code` existiert serverseitig, ist aber noch nicht an den Stationsbeitritt angebunden.
+
+Der Stationsbereich arbeitet weiterhin mit lokalen Platzhalterdaten, nicht mit dem Supabase-Schema. Standard-Einstieg ist der Stationsbeitritt (`/join`); das Backoffice ist von dort über einen unscheinbaren Textlink erreichbar und benötigt eine nicht-anonyme Organisatoren-Sitzung (der Root-Guard leitet anonyme Sitzungen aus dem Backoffice weg). Der Stationsbereich selbst benötigt keine Sitzung; die Bildschirme sind vollständig bedienbar und visuell fertig. Person und Check-in werden im Speicher geteilt, gehen beim Neustart der App aber verloren; Ergebnisse werden nicht gesichert. Serverseitiger Codebeitritt im Client, echter Gerätezugang, die tatsächliche Satellitenkarte, persistente Werkzeugzustände, Hilfeanrufe mit echten Rufnummern, Realtime-Abonnements im Client und robuste Offline-Ergebnissicherung fehlen. Webexport und native Bundles für iOS und Android wurden gebaut; echte Gerätetests, natives Liquid Glass, Haptik und die Abnahme der Paketkombination stehen noch aus.
 
 Dieses Grundgerüst ist noch keine für den Offline-Einsatz geprüfte Sporttag-App.
 
@@ -45,8 +47,12 @@ Dieses Grundgerüst ist noch keine für den Offline-Einsatz geprüfte Sporttag-A
 
 ```text
 app/                     Expo-Router-Routen und Layouts
-components/ui/           bisherige UI-Grundlagen und Theme
-components/platform/     bisherige plattformspezifische Oberfläche
+app/(backoffice)/        geschütztes Backoffice entlang des Event-Lebenszyklus
+app/(backoffice)/planning/ Planungs-Hub und Unterseiten (Teams, Spiele, Gelände, Zeitplan, Betreuung)
+app/(backoffice)/more/   Übersicht, Freigabe, Geräte, Event-Einstellungen, Spielvorlagen, Konto
+app/(station)/           Stationsbetrieb: Codebeitritt, Auswahl, Karte, Check-in, Cockpit
+components/ui/           gemeinsame Designsystem-Komponenten, Icon-Set und Theme-Tokens
+components/layout/       Screen, Header, Section, ModuleScreen, Navigation und BackofficeShell
 providers/               Session-Verwaltung
 hooks/                   gemeinsame Hooks
 lib/                     unter anderem Supabase-Client
@@ -56,9 +62,11 @@ docs/                    Frontend- und Datenkonzept
 AGENTS.md                Arbeitsregeln für Agents
 ```
 
+Die Navigation des Backoffice folgt dem Event-Lebenszyklus: konfigurieren → planen → veröffentlichen → betreiben → abgleichen. Auf breiten Bildschirmen zeigt die Shell eine seitliche, gruppierte Navigation. Auf Smartphones übernimmt die native Tab-Leiste aus `expo-router/unstable-native-tabs` (SF Symbols auf iOS, Material Symbols auf Android) mit den Hauptbereichen Events, Planung, Live, Ergebnis und Mehr; im Web wird dafür die JS-Tab-Leiste von Expo Router verwendet. Die Module Übersicht, Freigabe, Geräte, Event-Einstellungen, Spielvorlagen und Konto liegen im verschachtelten `more/`-Stack und sind dort unter „Mehr“ erreichbar. `unstable-native-tabs` ist als instabile API gekennzeichnet; die native Tab-Leiste wurde per Bundle-Export, aber noch nicht auf einem Gerät geprüft. Eine Event-Kontext-Route (`[eventId]`) wird mit dem Event-Portfolio und den Mitgliedschaften eingeführt.
+
 Die App-Icon-Konfiguration liegt in `app.json`: iOS verwendet das Icon-Composer-Projekt, Android ein Adaptive Icon mit eigener Vordergrund- und Monochromebene, Web ein Favicon. Das Läufer-SVG unter `assets/icons/` ist davon getrennt und für die spätere Verwendung innerhalb der UI vorgesehen.
 
-Die geplante Komponentenstruktur unter `components/ui/` und `components/layout/` steht im Frontend-Konzept. Bestehende Starter-Komponenten werden bei Umsetzung passend weiterentwickelt.
+Die geplante Komponentenstruktur unter `components/ui/` und `components/layout/` ist angelegt. Bestehende Starter-Komponenten wurden in das gemeinsame Designsystem überführt; weitere Komponenten werden bei konkretem Bedarf ergänzt.
 
 ## Lokale Einrichtung
 
@@ -81,9 +89,11 @@ Die Vorlage verwendet derzeit diese Variablennamen:
 ```dotenv
 EXPO_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+EXPO_PUBLIC_ASSISTANCE_PHONE=+491234567890
+EXPO_PUBLIC_MEDICAL_PHONE=+491234567890
 ```
 
-In `EXPO_PUBLIC_*` gehören ausschließlich für Clients bestimmte Konfigurationswerte und öffentliche Client-Schlüssel. Service-Role-Schlüssel und private Tokens bleiben serverseitig. Reale Zugangsdaten nicht committen.
+In `EXPO_PUBLIC_*` gehören ausschließlich für Clients bestimmte Konfigurationswerte und öffentliche Client-Schlüssel. Service-Role-Schlüssel und private Tokens bleiben serverseitig. Reale Zugangsdaten nicht committen. Die Rufnummern werden beim Betätigen der Hilfeaktionen „Assistenz“ und „Medizinisch“ per `tel:` angerufen.
 
 Das Eintragen einer Projekt-URL richtet das im Datenkonzept beschriebene Schema und dessen Zugriffsregeln noch nicht ein.
 
