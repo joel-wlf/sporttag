@@ -8,6 +8,7 @@ export type NavigationItem = {
   label: string;
   tabLabel: string;
   icon: IconName;
+  children?: NavigationItem[];
 };
 
 export type NavigationGroup = {
@@ -23,12 +24,53 @@ const events: NavigationItem = {
   icon: 'overview',
 };
 
+const planningTeams: NavigationItem = {
+  name: 'planning-teams',
+  href: '/planning/teams',
+  label: 'Teams',
+  tabLabel: 'Teams',
+  icon: 'user',
+};
+
+const planningGames: NavigationItem = {
+  name: 'planning-games',
+  href: '/planning/games',
+  label: 'Spiele & Wertung',
+  tabLabel: 'Spiele',
+  icon: 'results',
+};
+
+const planningVenue: NavigationItem = {
+  name: 'planning-venue',
+  href: '/planning/venue',
+  label: 'Gelände & Stationen',
+  tabLabel: 'Gelände',
+  icon: 'map-pin',
+};
+
+const planningSchedule: NavigationItem = {
+  name: 'planning-schedule',
+  href: '/planning/schedule',
+  label: 'Zeitplan & Matches',
+  tabLabel: 'Zeitplan',
+  icon: 'clock',
+};
+
+const planningStaff: NavigationItem = {
+  name: 'planning-staff',
+  href: '/planning/staff',
+  label: 'Betreuung',
+  tabLabel: 'Betreuung',
+  icon: 'shield',
+};
+
 const planning: NavigationItem = {
   name: 'planning',
   href: '/planning',
   label: 'Planung',
   tabLabel: 'Planung',
   icon: 'planning',
+  children: [planningTeams, planningGames, planningVenue, planningSchedule, planningStaff],
 };
 
 const live: NavigationItem = {

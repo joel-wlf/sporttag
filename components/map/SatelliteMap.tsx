@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef } from 'react';
 import { View } from 'react-native';
 import { Camera, type CameraRef, GeoJSONSource, Layer, Map, Marker, type StyleSpecification } from '@maplibre/maplibre-react-native';
 import { boundsKey, boundsToPolygonFeature } from './geo';
-import { MapTokenNotice } from './MapTokenNotice';
-import { fetchSatelliteStreetsStyle, getMapboxAccessToken } from './mapStyle';
+import { buildSatelliteStyle } from './mapStyle';
 import { PinMarker } from './PinMarker';
 import type { SatelliteMapProps } from './types';
 
 const DEFAULT_CENTER: [number, number] = [10.4515, 51.1657];
 const DEFAULT_ZOOM = 5;
+const MAP_STYLE = buildSatelliteStyle() as unknown as StyleSpecification;
 
 export function SatelliteMap({
   bounds,
@@ -20,20 +20,7 @@ export function SatelliteMap({
   onMapPress,
   height = 420,
 }: SatelliteMapProps) {
-  const token = getMapboxAccessToken();
   const cameraRef = useRef<CameraRef>(null);
-  const [mapStyle, setMapStyle] = useState<StyleSpecification | null>(null);
-
-  useEffect(() => {
-    if (!token) return;
-    let cancelled = false;
-    fetchSatelliteStreetsStyle(token).then((style) => {
-      if (!cancelled) setMapStyle(style as unknown as StyleSpecification);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
 
   const key = boundsKey(bounds);
   const polygon = useMemo(
@@ -47,33 +34,33 @@ export function SatelliteMap({
     [key],
   );
 
-  if (!token || !mapStyle) {
-    return <MapTokenNotice height={height} missingToken={!token} />;
-  }
+  const cameraStop = focus
+    ? { center: focus.center, zoom: focus.zoom ?? 16 }
+    : cameraBounds
+      ? { bounds: cameraBounds }
+      : {};
 
   return (
     <View style={{ height, borderRadius: 22, overflow: 'hidden' }}>
       <Map
         attribution
-        mapStyle={mapStyle}
+        mapStyle={MAP_STYLE}
         onPress={onMapPress ? (event) => onMapPress(event.nativeEvent.lngLat) : undefined}
         style={{ flex: 1 }}
       >
         <Camera
-          bounds={!focus ? cameraBounds : undefined}
-          center={focus ? focus.center : undefined}
+          {...cameraStop}
           initialViewState={
             cameraBounds
               ? { bounds: cameraBounds, padding: { top: 40, right: 40, bottom: 40, left: 40 } }
               : { center: center ?? DEFAULT_CENTER, zoom: center ? zoom : DEFAULT_ZOOM }
           }
           ref={cameraRef}
-          zoom={focus ? (focus.zoom ?? 16) : undefined}
         />
         {polygon ? (
           <GeoJSONSource data={polygon} id="venue-bounds">
-            <Layer id="venue-bounds-fill" paint={{ 'fill-color': '#556B2F', 'fill-opacity': 0.14 }} type="fill" />
-            <Layer id="venue-bounds-line" paint={{ 'line-color': '#556B2F', 'line-width': 2 }} type="line" />
+            <Layer id="venue-bounds-fill" paint={{ 'fill-color': '#556B2F', 'fill-opacity': 0.18 }} type="fill" />
+            <Layer id="venue-bounds-line" paint={{ 'line-color': '#C59A4A', 'line-width': 3 }} type="line" />
           </GeoJSONSource>
         ) : null}
         {pins.map((pin) => (

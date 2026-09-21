@@ -516,6 +516,7 @@ export type Database = {
           plan_version: number
           round_minutes: number
           schedule_start_time: string
+          staff_assignment_mode: string
           status: string
           timezone: string
           updated_at: string
@@ -539,6 +540,7 @@ export type Database = {
           plan_version?: number
           round_minutes?: number
           schedule_start_time?: string
+          staff_assignment_mode?: string
           status?: string
           timezone?: string
           updated_at?: string
@@ -562,6 +564,7 @@ export type Database = {
           plan_version?: number
           round_minutes?: number
           schedule_start_time?: string
+          staff_assignment_mode?: string
           status?: string
           timezone?: string
           updated_at?: string
@@ -583,6 +586,45 @@ export type Database = {
             columns: ["id", "default_scoring_rule_id"]
             isOneToOne: false
             referencedRelation: "scoring_rules"
+            referencedColumns: ["event_id", "id"]
+          },
+        ]
+      }
+      game_assignments: {
+        Row: {
+          created_at: string
+          event_game_id: string
+          event_id: string
+          id: string
+          staff_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_game_id: string
+          event_id: string
+          id?: string
+          staff_id: string
+        }
+        Update: {
+          created_at?: string
+          event_game_id?: string
+          event_id?: string
+          id?: string
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_assignments_event_id_event_game_id_fkey"
+            columns: ["event_id", "event_game_id"]
+            isOneToOne: false
+            referencedRelation: "event_games"
+            referencedColumns: ["event_id", "id"]
+          },
+          {
+            foreignKeyName: "game_assignments_event_id_staff_id_fkey"
+            columns: ["event_id", "staff_id"]
+            isOneToOne: false
+            referencedRelation: "event_staff"
             referencedColumns: ["event_id", "id"]
           },
         ]
@@ -1401,6 +1443,7 @@ export type Database = {
           plan_version: number
           round_minutes: number
           schedule_start_time: string
+          staff_assignment_mode: string
           status: string
           timezone: string
           updated_at: string
@@ -1444,6 +1487,7 @@ export type Database = {
           plan_version: number
           round_minutes: number
           schedule_start_time: string
+          staff_assignment_mode: string
           status: string
           timezone: string
           updated_at: string
@@ -1519,6 +1563,7 @@ export type Database = {
           plan_version: number
           round_minutes: number
           schedule_start_time: string
+          staff_assignment_mode: string
           status: string
           timezone: string
           updated_at: string

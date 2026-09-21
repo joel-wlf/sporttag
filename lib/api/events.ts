@@ -71,6 +71,7 @@ export function useUpdateEvent(eventId: string) {
           | 'timezone'
           | 'ntfy_base_url'
           | 'ntfy_topic'
+          | 'staff_assignment_mode'
           | 'venue_north'
           | 'venue_south'
           | 'venue_east'

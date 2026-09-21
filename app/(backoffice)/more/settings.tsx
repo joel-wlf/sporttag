@@ -4,6 +4,7 @@ import { AccessCodeCard } from '@/components/backoffice/settings/AccessCodeCard'
 import { DangerZoneCard } from '@/components/backoffice/settings/DangerZoneCard';
 import { DevicesCard } from '@/components/backoffice/settings/DevicesCard';
 import { OrganizersCard } from '@/components/backoffice/settings/OrganizersCard';
+import { StaffAssignmentModeCard } from '@/components/backoffice/settings/StaffAssignmentModeCard';
 import { StatusCard } from '@/components/backoffice/settings/StatusCard';
 import { RequireEvent } from '@/components/backoffice/RequireEvent';
 import { Header } from '@/components/layout/Header';
@@ -116,6 +117,7 @@ function SettingsContent() {
       <View className="gap-5">
         <StammdatenCard event={event} key={event.id} />
         <StatusCard event={event} />
+        <StaffAssignmentModeCard event={event} />
         <Section title="Zugang">
           <AccessCodeCard eventId={eventId} />
           <DevicesCard eventId={eventId} />

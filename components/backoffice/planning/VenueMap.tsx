@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
+import { PlaceSearch } from '@/components/map/PlaceSearch';
 import { SatelliteMap } from '@/components/map/SatelliteMap';
-import type { Bounds, LngLat, MapPin } from '@/components/map/types';
+import type { Bounds, LngLat, MapFocus, MapPin } from '@/components/map/types';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { useTokens } from '@/components/ui/theme';
@@ -26,6 +27,7 @@ export function VenueMap({
   onCancelMode: () => void;
 }) {
   const tokens = useTokens();
+  const [focus, setFocus] = useState<MapFocus | null>(null);
 
   const visiblePins = useMemo(() => {
     if (mode.kind === 'bounds' && mode.first) {
@@ -66,8 +68,10 @@ export function VenueMap({
           <Button label="Abbrechen" onPress={onCancelMode} size="sm" variant="ghost" />
         </View>
       ) : null}
+      <PlaceSearch onSelect={(result) => setFocus({ center: result.coordinate, zoom: 16 })} />
       <SatelliteMap
         bounds={bounds}
+        focus={focus}
         onMapPress={mode.kind !== 'idle' ? onMapPress : undefined}
         onPinPress={mode.kind === 'idle' ? onPinPress : undefined}
         pins={visiblePins}

@@ -1,7 +1,8 @@
 import { Link, usePathname } from 'expo-router';
+import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { sidebarGroups } from '@/components/layout/navigation';
+import { sidebarGroups, type NavigationItem } from '@/components/layout/navigation';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge, type BadgeTone } from '@/components/ui/Badge';
 import { GlassSurface } from '@/components/ui/GlassSurface';
@@ -35,6 +36,90 @@ function Brand() {
         <Text className="text-[18px] font-extrabold tracking-[-0.3px] text-ink">Sporttag</Text>
         <Text className="text-[10px] font-extrabold tracking-[1.2px] text-subtle">BACKOFFICE</Text>
       </View>
+    </View>
+  );
+}
+
+function SidebarItem({ item, pathname }: { item: NavigationItem; pathname: string }) {
+  const tokens = useTokens();
+  const href = String(item.href);
+  const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
+  const [expanded, setExpanded] = useState(active);
+
+  return (
+    <View className="gap-1">
+      <View
+        className={[
+          'min-h-[44px] flex-row items-center rounded-2xl',
+          active ? 'bg-primary-soft' : '',
+        ].join(' ')}
+      >
+        <Link asChild href={item.href}>
+          <Pressable
+            accessibilityRole="menuitem"
+            accessibilityState={{ selected: active }}
+            className="min-h-[44px] flex-1 flex-row items-center gap-3 px-3 active:opacity-70"
+          >
+            <Icon name={item.icon} size={18} color={active ? tokens.primary : tokens.subtle} />
+            <Text
+              className={[
+                'flex-1 text-[13px] font-bold',
+                active ? 'text-primary' : 'text-subtle',
+              ].join(' ')}
+            >
+              {item.label}
+            </Text>
+          </Pressable>
+        </Link>
+        {item.children?.length ? (
+          <Pressable
+            accessibilityRole="button"
+            className="h-11 w-11 items-center justify-center active:opacity-70"
+            hitSlop={8}
+            onPress={() => setExpanded((value) => !value)}
+          >
+            <Icon
+              name={expanded ? 'chevron-down' : 'chevron-right'}
+              size={16}
+              color={tokens.subtle}
+            />
+          </Pressable>
+        ) : null}
+      </View>
+      {item.children?.length && expanded ? (
+        <View className="gap-1 pl-6">
+          {item.children.map((child) => {
+            const childHref = String(child.href);
+            const childActive = pathname.startsWith(childHref);
+            return (
+              <Link asChild href={child.href} key={child.name}>
+                <Pressable
+                  accessibilityRole="menuitem"
+                  accessibilityState={{ selected: childActive }}
+                  className={[
+                    'min-h-[40px] flex-row items-center gap-3 rounded-2xl px-3 active:opacity-70',
+                    childActive ? 'bg-primary-soft' : '',
+                  ].join(' ')}
+                >
+                  <Icon
+                    name={child.icon}
+                    size={16}
+                    color={childActive ? tokens.primary : tokens.subtle}
+                  />
+                  <Text
+                    className={[
+                      'flex-1 text-[13px] font-bold',
+                      childActive ? 'text-primary' : 'text-subtle',
+                    ].join(' ')}
+                  >
+                    {child.label}
+                  </Text>
+                </Pressable>
+              </Link>
+            );
+          })}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -76,36 +161,9 @@ function SidebarContent() {
             <Text className="px-3 text-[10px] font-extrabold tracking-[0.9px] text-subtle">
               {group.title.toUpperCase()}
             </Text>
-            {group.items.map((item) => {
-              const href = String(item.href);
-              const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
-              return (
-                <Link asChild href={item.href} key={item.name}>
-                  <Pressable
-                    accessibilityRole="menuitem"
-                    accessibilityState={{ selected: active }}
-                    className={[
-                      'min-h-[44px] flex-row items-center gap-3 rounded-2xl px-3 active:opacity-70',
-                      active ? 'bg-primary-soft' : '',
-                    ].join(' ')}
-                  >
-                    <Icon
-                      name={item.icon}
-                      size={18}
-                      color={active ? tokens.primary : tokens.subtle}
-                    />
-                    <Text
-                      className={[
-                        'flex-1 text-[13px] font-bold',
-                        active ? 'text-primary' : 'text-subtle',
-                      ].join(' ')}
-                    >
-                      {item.label}
-                    </Text>
-                  </Pressable>
-                </Link>
-              );
-            })}
+            {group.items.map((item) => (
+              <SidebarItem item={item} key={item.name} pathname={pathname} />
+            ))}
           </View>
         ))}
       </View>

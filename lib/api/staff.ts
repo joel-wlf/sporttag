@@ -4,9 +4,12 @@ import type { Tables, TablesInsert } from '@/lib/database.types';
 
 export type StaffRow = Tables<'event_staff'>;
 export type StationAssignmentRow = Tables<'station_assignments'>;
+export type GameAssignmentRow = Tables<'game_assignments'>;
+export type StaffAssignmentMode = 'station' | 'game';
 
 const staffKey = (eventId: string) => ['events', eventId, 'staff'] as const;
 const assignmentsKey = (eventId: string) => ['events', eventId, 'assignments'] as const;
+const gameAssignmentsKey = (eventId: string) => ['events', eventId, 'game-assignments'] as const;
 
 export function useEventStaff(eventId: string | null) {
   return useQuery({
@@ -96,6 +99,54 @@ export function useUnassignStaff(eventId: string) {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: assignmentsKey(eventId) });
+    },
+  });
+}
+
+export function useGameAssignments(eventId: string | null) {
+  return useQuery({
+    queryKey: eventId ? gameAssignmentsKey(eventId) : ['events', 'none', 'game-assignments'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('game_assignments')
+        .select('*, event_staff(display_name)')
+        .eq('event_id', eventId as string);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: Boolean(eventId),
+  });
+}
+
+export function useAssignStaffToGame(eventId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { staffId: string; eventGameId: string }) => {
+      const { data, error } = await supabase
+        .from('game_assignments')
+        .insert({ event_id: eventId, staff_id: input.staffId, event_game_id: input.eventGameId })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: gameAssignmentsKey(eventId) });
+      void queryClient.invalidateQueries({ queryKey: ['events', eventId, 'readiness'] });
+    },
+  });
+}
+
+export function useUnassignStaffFromGame(eventId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (assignmentId: string) => {
+      const { error } = await supabase.from('game_assignments').delete().eq('id', assignmentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: gameAssignmentsKey(eventId) });
+      void queryClient.invalidateQueries({ queryKey: ['events', eventId, 'readiness'] });
     },
   });
 }
