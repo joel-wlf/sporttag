@@ -3,14 +3,32 @@
     "name": "Sporttag",
     "slug": "sporttag",
     "version": "1.0.0",
+    "icon": "./assets/branding/app-icon/app-icon.png",
     "orientation": "portrait",
     "scheme": "sporttag",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "plugins": ["expo-router"],
-    "experiments": { "typedRoutes": true },
-    "ios": { "supportsTablet": true, "bundleIdentifier": "com.example.sporttag" },
-    "android": { "package": "com.example.sporttag", "edgeToEdgeEnabled": true },
-    "web": { "bundler": "metro", "output": "single" }
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.sporttag",
+      "icon": "./assets/branding/app-icon/ios/Sporttag.icon"
+    },
+    "android": {
+      "package": "com.example.sporttag",
+      "icon": "./assets/branding/app-icon/app-icon.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/branding/app-icon/android/foreground.png",
+        "monochromeImage": "./assets/branding/app-icon/android/monochrome.png",
+        "backgroundColor": "#556B2F"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/branding/app-icon/favicon.png"
+    }
   }
 }

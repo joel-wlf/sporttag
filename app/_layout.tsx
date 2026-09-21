@@ -1,10 +1,12 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router/react-navigation';
 import { ActivityIndicator, View } from 'react-native';
 import { useEffect } from 'react';
 import { SessionProvider, useSession } from '@/providers/SessionProvider';
 import { useTheme } from '@/hooks/useTheme';
 import { palette } from '@/components/ui/theme';
+import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
+import '@/global.css';
 
 function RouteGuard() {
   const { session, isLoading } = useSession();
@@ -26,5 +28,5 @@ function RouteGuard() {
 
 export default function RootLayout() {
   const theme = useTheme();
-  return <ThemeProvider value={theme === 'dark' ? DarkTheme : DefaultTheme}><SessionProvider><RouteGuard /></SessionProvider></ThemeProvider>;
+  return <GluestackUIProvider><ThemeProvider value={theme === 'dark' ? DarkTheme : DefaultTheme}><SessionProvider><RouteGuard /></SessionProvider></ThemeProvider></GluestackUIProvider>;
 }

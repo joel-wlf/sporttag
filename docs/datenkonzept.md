@@ -1,6 +1,6 @@
 # Sporttag-App: ER-Modell und Datenkonzept
 
-Stand: 20.09.2026 · Entwurf 3: Codezugang, Stationsbetreuung und Offline-Geländekarte
+Stand: 21.09.2026 · Entwurf 4: Supabase-Schema und Realtime-Grundlage
 
 Grundlage: `sporttag-app-datenmodell-handover.md`. Die Anforderungen daraus dienen als fachlicher Kontext. Dieses Dokument konzipiert das Modell; es implementiert weder Anwendung noch Datenbank. Mit **Default** markierte Entscheidungen sind Vorschläge, keine bereits bestätigten Anforderungen.
 
@@ -18,7 +18,7 @@ Eine **Stationsbelegung** verbindet Station, Block und Veranstaltungsspiel. Ein 
 
 Bestätigt: Spielpunkte unterscheiden sich stark je Spiel. Die Gesamtwertung basiert deshalb standardmäßig auf Sieg/Unentschieden/Niederlage, nicht auf der Summe der Spielpunkte. Der Gesamtsieg ergibt sich aus der Tabelle. Optional sind Matches mit mehreren oder allen Teams möglich, beispielsweise das „Kamelspiel“. Sie können am Ende oder in einer beliebigen Spielrunde stattfinden. Ein Abschlussspiel ist keine Voraussetzung. Im Backoffice wird für solche Matches entweder nur der Gewinner oder eine Folge von Platzierungen mit Punkten belohnt.
 
-**Offline ist verpflichtend:** Nach einmaliger Vorbereitung muss der gesamte Sporttagsbetrieb ohne Internet funktionieren, auch über App-Abstürze und Neustarts hinweg. Ergebnisse werden zuerst dauerhaft lokal gespeichert. Sobald Internet verfügbar ist, werden sie automatisch zur zentralen Datenbank übertragen. Ein einziger abschließender Synchronisationsdurchlauf je Erfassungsgerät muss ebenfalls ausreichen. Echtzeitfunktionen sind eine Ergänzung und keine Voraussetzung.
+**Offline ist verpflichtend:** Nach einmaliger Vorbereitung muss der gesamte Sporttagsbetrieb ohne Internet funktionieren, auch über App-Abstürze und Neustarts hinweg. Ergebnisse werden zuerst dauerhaft lokal gespeichert. Sobald Internet verfügbar ist, werden sie automatisch zur zentralen Datenbank übertragen. Ein einziger abschließender Synchronisationsdurchlauf je Erfassungsgerät muss ebenfalls ausreichen. **Bestätigt ist außerdem: Die App erhält Live-Updates über Supabase Realtime.** Realtime bleibt eine Ergänzung zur persistenten Synchronisation und keine Voraussetzung für den Offline-Betrieb.
 
 Weitere Defaults: feste Teams ohne personenbezogene Teilnehmerverwaltung, manuelle Planung, zwei Teams in regulären Matches, eine Gesamtwertung und unmittelbare lokale Ergebnisbestätigung durch Spielleiter. Das Modell unterstützt ausdrücklich auch ein oder mehrere Teams pro Match. Bestätigt ist die freie Konfiguration der Tabellenpunkte im Backoffice; 3/1/0 ist lediglich ein vorbelegbarer Vorschlag.
 
@@ -573,7 +573,7 @@ Das Paket wird aus einem konsistenten Snapshot erzeugt. Eine laufende SQLite-Dat
 
 ### 11.6 Realtime und spätere Statusmeldungen
 
-Bei erreichbarem Netz fließen Abgaben fortlaufend in Supabase und damit in die Live-Tabelle des Backoffice. Realtime signalisiert einen neuen Stand; der persistente Abruf stellt ihn wieder her, auch wenn einzelne Signale verpasst wurden. Zugriffe bleiben auf die berechtigte Veranstaltung begrenzt; öffentliches Streaming gehört nicht zum aktuellen Umfang.
+Bestätigt: Bei erreichbarem Netz fließen Abgaben fortlaufend in Supabase und damit in die Live-Tabelle des Backoffice. Die App verwendet Supabase Realtime für Live-Updates. `matches`, `result_submissions`, `result_revisions` und `result_values` liegen dafür in der Publication `supabase_realtime`. Ein Signal stößt einen persistenten Neuabruf des betroffenen Eventstands und der Rangliste an; es selbst wird nicht als dauerhafte Wahrheit behandelt. Nach Verbindungsabbrüchen erfolgt ein vollständiger Neuabruf, damit verpasste Signale keine Datenlücke erzeugen. Zugriffe bleiben über RLS auf die berechtigte Veranstaltung begrenzt; öffentliches Streaming gehört nicht zum aktuellen Umfang.
 
 „Nächste Gruppe ist unterwegs“ wird später als separates, zeitlich begrenzt gültiges Statusereignis modelliert. Es darf die Ergebnissicherung nicht blockieren und wird nach Ablauf nicht als aktuelle Meldung nachgesendet. Dafür muss jetzt noch keine zusätzliche Fachtabelle geschaffen werden.
 

@@ -19,7 +19,7 @@ Stationsmanager geben einen gemeinsamen Veranstaltungscode ein und benötigen ke
 
 Das separat geschützte Backoffice verwaltet Veranstaltungen, Teams, feste Stationsstandorte, Spiele, Blöcke, Runden, Betreuung und konfigurierbare Tabellenpunkte. Mehrere Personen dürfen dieselbe Station betreuen. Mehrteamspiele sind optional; ein Abschlussspiel ist nicht vorgeschrieben. Öffentliche Teilnehmeransichten gehören derzeit nicht zum App-Umfang.
 
-Ergebnisse sollen zuerst dauerhaft lokal gesichert und bei Verbindung automatisch synchronisiert werden. Ein vollständiger Abgleich erst am Ende muss möglich sein. Realtime ist eine Ergänzung. Die optionale ntfy-Hilfeaktion benötigt Verbindung und zeigt ihren Versandstatus ausdrücklich an.
+Ergebnisse sollen zuerst dauerhaft lokal gesichert und bei Verbindung automatisch synchronisiert werden. Ein vollständiger Abgleich erst am Ende muss möglich sein. Die App erhält Live-Updates über Supabase Realtime; Realtime ergänzt die persistente Synchronisierung und ersetzt sie nicht. Die optionale ntfy-Hilfeaktion benötigt Verbindung und zeigt ihren Versandstatus ausdrücklich an.
 
 ## Architekturvorgaben
 
@@ -35,9 +35,9 @@ Gemeinsame visuelle Identität und gezielte native Plattformfähigkeiten gehöre
 
 ## Tatsächlicher Implementierungsstand
 
-Das Repository enthält bislang ein Expo-Grundgerüst mit Router, Login-/Session-Grundlagen, Supabase-Client, einfachen Screens, Theme und EAS-Konfiguration. Die vorhandenen Tabs verwenden derzeit `Tabs` aus Expo Router; die gewünschte native Tab-Umsetzung ist damit noch nicht als fertig nachgewiesen.
+Das Repository enthält ein Expo-Grundgerüst mit Router, Login-/Session-Grundlagen, Supabase-Client, einfachen Screens, Theme und EAS-Konfiguration. Das fachliche Supabase-Schema liegt als erste Migration unter `supabase/migrations/`; es umfasst RLS, versionierte Ergebnisabgaben, Ranglistenviews und die Realtime-Publication. Die vorhandenen Tabs verwenden derzeit `Tabs` aus Expo Router; die gewünschte native Tab-Umsetzung ist damit noch nicht als fertig nachgewiesen.
 
-Die Docs beschreiben die Zielarchitektur. **NativeWind ist noch nicht installiert; gluestack-ui-Komponenten wurden noch nicht übernommen.** Das fachliche Datenbankschema, Codebeitritt, Stationsbetrieb, Satellitenkarte, lokale Werkzeuge, ntfy-Integration und robuste Offline-Ergebnissicherung sind noch nicht implementiert. Der bisherige Login-Flow ist ein Starter und entspricht noch nicht dem vorgesehenen Codezugang.
+Die Docs beschreiben die Zielarchitektur. **NativeWind ist noch nicht installiert; gluestack-ui-Komponenten wurden noch nicht übernommen.** Codebeitritt, Stationsbetrieb, Satellitenkarte, lokale Werkzeuge, ntfy-Integration, Realtime-Abonnements im Client und robuste Offline-Ergebnissicherung sind noch nicht implementiert. Der bisherige Login-Flow ist ein Starter und entspricht noch nicht dem vorgesehenen Codezugang.
 
 Dieses Grundgerüst ist noch keine für den Offline-Einsatz geprüfte Sporttag-App.
 
@@ -50,9 +50,13 @@ components/platform/     bisherige plattformspezifische Oberfläche
 providers/               Session-Verwaltung
 hooks/                   gemeinsame Hooks
 lib/                     unter anderem Supabase-Client
+assets/branding/app-icon/ plattformspezifische App-Icon-Quellen und Exporte
+assets/icons/             eigenständige UI-Symbole, darunter das Läufermotiv
 docs/                    Frontend- und Datenkonzept
 AGENTS.md                Arbeitsregeln für Agents
 ```
+
+Die App-Icon-Konfiguration liegt in `app.json`: iOS verwendet das Icon-Composer-Projekt, Android ein Adaptive Icon mit eigener Vordergrund- und Monochromebene, Web ein Favicon. Das Läufer-SVG unter `assets/icons/` ist davon getrennt und für die spätere Verwendung innerhalb der UI vorgesehen.
 
 Die geplante Komponentenstruktur unter `components/ui/` und `components/layout/` steht im Frontend-Konzept. Bestehende Starter-Komponenten werden bei Umsetzung passend weiterentwickelt.
 

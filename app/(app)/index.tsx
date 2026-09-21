@@ -1,9 +1,15 @@
-import { Link } from 'expo-router';
-import { StyleSheet, Text } from 'react-native';
-import { PlatformSurface } from '@/components/platform/PlatformSurface';
-import { Screen } from '@/components/ui/Screen';
+import { Text, View } from 'react-native';
+import { BackofficePage, backofficeStyles as styles, SurfaceCard } from '@/components/backoffice/BackofficePage';
 import { palette } from '@/components/ui/theme';
 import { useTheme } from '@/hooks/useTheme';
-import { useSession } from '@/providers/SessionProvider';
-export default function HomeScreen() { const { session } = useSession(); const color = palette(useTheme()); return <Screen><Text style={[styles.title, { color: color.text }]}>Welcome to Sporttag</Text><Text style={{ color: color.muted }}>{session?.user.email ?? 'Signed in'}</Text><PlatformSurface><Text style={[styles.heading, { color: color.text }]}>Platform-aware surface</Text><Text style={{ color: color.muted }}>This uses native Liquid Glass where iOS supports it, and an appropriate standard surface elsewhere.</Text></PlatformSurface><Link href="/settings" style={[styles.link, { color: color.accent }]}>Open settings</Link></Screen>; }
-const styles = StyleSheet.create({ title: { fontSize: 28, fontWeight: '700' }, heading: { fontSize: 18, fontWeight: '700' }, link: { fontWeight: '700', fontSize: 16 } });
+
+export default function OverviewScreen() {
+  const color = palette(useTheme());
+  return <BackofficePage description="Planung und Betrieb deiner Veranstaltung." eyebrow="BACKOFFICE" title="Übersicht">
+    <View style={styles.grid}>{[['–', 'Teams'], ['–', 'Stationen'], ['–', 'Spiele'], ['Entwurf', 'Planstatus']].map(([value, label]) => <View key={label} style={styles.cardGrow}><SurfaceCard><Text style={[styles.label, { color: color.muted }]}>{label.toUpperCase()}</Text><Text style={[styles.stat, { color: color.text }]}>{value}</Text></SurfaceCard></View>)}</View>
+    <View style={styles.grid}>
+      <View style={styles.cardWide}><SurfaceCard><Text style={[styles.cardTitle, { color: color.text }]}>Keine Veranstaltung ausgewählt</Text><Text style={[styles.cardDescription, { color: color.muted }]}>Wähle eine Veranstaltung aus oder lege eine neue an.</Text></SurfaceCard></View>
+      <View style={styles.cardGrow}><SurfaceCard muted><Text style={[styles.cardTitle, { color: color.text }]}>Nächste Schritte</Text><View style={styles.list}>{['Veranstaltung anlegen', 'Teams und Stationen erfassen', 'Ablauf planen', 'Offline-Paket prüfen'].map((item, index) => <View key={item} style={styles.row}><View style={[styles.badge, { backgroundColor: color.surface }]}><Text style={[styles.badgeText, { color: color.accent }]}>{index + 1}</Text></View><Text style={[styles.rowText, { color: color.text }]}>{item}</Text></View>)}</View></SurfaceCard></View>
+    </View>
+  </BackofficePage>;
+}
