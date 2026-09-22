@@ -131,7 +131,6 @@ export function useRecordResult(eventId: string) {
     onSuccess: () => invalidateResults(queryClient, eventId),
   });
 }
-
 /** Abgabe ohne neue Revision klären: identisch mit dem aktuellen Stand, oder verworfen. */
 export function useDismissSubmissions(eventId: string) {
   const queryClient = useQueryClient();
@@ -140,6 +139,25 @@ export function useDismissSubmissions(eventId: string) {
       const { error } = await supabase.rpc('dismiss_submissions', {
         p_event_id: eventId,
         p_request_ids: input.requestIds,
+        p_reason: input.reason,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateResults(queryClient, eventId),
+  });
+}
+
+/**
+ * Ergebnis weich löschen: leere Revision mit Pflichtbegründung. Das Match wird
+ * wieder geöffnet und zählt nicht mehr, die Historie bleibt erhalten.
+ */
+export function useWithdrawResult(eventId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { matchId: string; reason: string }) => {
+      const { error } = await supabase.rpc('withdraw_result', {
+        p_event_id: eventId,
+        p_match_id: input.matchId,
         p_reason: input.reason,
       });
       if (error) throw error;

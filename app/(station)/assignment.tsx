@@ -11,24 +11,22 @@ import {
 } from 'react-native';
 import { Screen } from '@/components/layout/Screen';
 import { ActionBar } from '@/components/station/ActionBar';
+import { MissingPackage } from '@/components/station/MissingPackage';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Icon } from '@/components/ui/Icon';
 import { useTokens } from '@/components/ui/theme';
 import { haptic } from '@/lib/haptics';
-import { entryState, findDayEntry, formatTime, type EntryState } from '@/lib/station/package';
+import { blockKindLabels, blockLabel, entryState, findDayEntry, formatTime, type EntryState } from '@/lib/station/package';
 import type { DayEntry } from '@/lib/station/types';
 import { useStationSession } from '@/providers/StationSessionProvider';
 
 const GAP = 12;
 
-const entryTitle = (entry: DayEntry) =>
-  entry.kind === 'assignment' ? `${entry.block.name} · ${entry.station.name}` : entry.block.name;
-
 const entryRowLabel = (entry: DayEntry) => {
   if (entry.kind === 'assignment') return `${entry.station.name} · ${entry.game.name}`;
-  if (entry.kind === 'off') return `${entry.block.name} · Kein Einsatz`;
-  return entry.block.name;
+  if (entry.kind === 'off') return `${blockLabel(entry.block)} · Kein Einsatz`;
+  return blockLabel(entry.block);
 };
 
 function DayCard({
@@ -89,17 +87,20 @@ function DayCard({
       </View>
 
       <View className="gap-2">
+        {/* Der Block ist die verbindliche Einheit: er startet gemeinsam. Die
+            Uhrzeit darunter ist nur der Plan — sie verschiebt sich im Lauf des
+            Tages und steht deshalb bewusst klein. */}
         <View className="flex-row items-baseline gap-2">
           <Text className={['text-stat font-extrabold leading-[44px] tracking-[-1px]', ink].join(' ')}>
-            {formatTime(entry.block.starts_at, timezone)}
+            {entry.block.position}
           </Text>
-          <Text className={['text-sm font-semibold', sub].join(' ')}>
-            bis {formatTime(entry.block.ends_at, timezone)}
+          <Text className={['text-sm font-bold', sub].join(' ')} numberOfLines={1}>
+            {blockKindLabels[entry.block.kind]}
           </Text>
         </View>
         <View className="gap-0.5">
           <Text className={['text-lg font-extrabold', ink].join(' ')} numberOfLines={1}>
-            {entryTitle(entry)}
+            {isAssignment ? entry.station.name : blockLabel(entry.block)}
           </Text>
           {entry.kind === 'assignment' ? (
             <Text className={['text-sm', sub].join(' ')} numberOfLines={1}>
@@ -110,6 +111,9 @@ function DayCard({
               Kein Einsatz
             </Text>
           ) : null}
+          <Text className={['text-2xs', sub].join(' ')} numberOfLines={1}>
+            geplant ca. {formatTime(entry.block.starts_at, timezone)}–{formatTime(entry.block.ends_at, timezone)}
+          </Text>
         </View>
       </View>
     </View>
@@ -155,12 +159,16 @@ export default function StationDayScreen() {
   if (entries.length === 0) {
     return (
       <Screen density="compact" size="narrow">
-        <EmptyState
-          action={<Button label="Person wechseln" onPress={() => router.push('/who')} />}
-          description="Für diese Person ist heute kein Block geplant."
-          icon="clock"
-          title="Kein Einsatz geplant"
-        />
+        {!pkg ? (
+          <MissingPackage title="Kein Tagesplan" />
+        ) : (
+          <EmptyState
+            action={<Button label="Person wechseln" onPress={() => router.push('/who')} />}
+            description="Für diese Person ist heute kein Block geplant."
+            icon="clock"
+            title="Kein Einsatz geplant"
+          />
+        )}
       </Screen>
     );
   }
@@ -187,7 +195,7 @@ export default function StationDayScreen() {
     if (entry.kind !== 'assignment') return;
     router.push({
       pathname: '/map',
-      params: { setupId: entry.setupId, station: entry.station.name, block: entry.block.name, game: entry.game.name },
+      params: { setupId: entry.setupId, station: entry.station.name, block: blockLabel(entry.block), game: entry.game.name },
     });
   };
 
@@ -195,7 +203,7 @@ export default function StationDayScreen() {
     if (entry.kind !== 'assignment') return;
     router.push({
       pathname: '/cockpit',
-      params: { setupId: entry.setupId, station: entry.station.name, block: entry.block.name, game: entry.game.name },
+      params: { setupId: entry.setupId, station: entry.station.name, block: blockLabel(entry.block), game: entry.game.name },
     });
   };
 
@@ -261,13 +269,13 @@ export default function StationDayScreen() {
           ) : null}
           {activeEntry ? (
             <Pressable
-              accessibilityLabel={`Eingecheckt in ${activeEntry.block.name}, anzeigen`}
+              accessibilityLabel={`Eingecheckt in ${blockLabel(activeEntry.block)}, anzeigen`}
               accessibilityRole="button"
               className="flex-row items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-1 active:opacity-70"
               onPress={() => select(entries.findIndex((entry) => entry.id === activeEntry.id))}
             >
               <Icon color={tokens.success} name="check-circle" size={13} />
-              <Text className="text-2xs font-bold text-success">{activeEntry.block.name}</Text>
+              <Text className="text-2xs font-bold text-success">{blockLabel(activeEntry.block)}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -327,14 +335,12 @@ export default function StationDayScreen() {
               key={entry.id}
               onPress={() => select(position)}
             >
-              <Text
-                className={[
-                  'w-11 text-xs font-bold',
-                  state === 'now' ? 'text-primary' : 'text-subtle',
-                ].join(' ')}
-              >
-                {formatTime(entry.block.starts_at, timezone)}
-              </Text>
+              <View className="w-11">
+                <Text className={['text-xs font-bold', state === 'now' ? 'text-primary' : 'text-ink'].join(' ')}>
+                  Bl. {entry.block.position}
+                </Text>
+                <Text className="text-2xs text-subtle">{formatTime(entry.block.starts_at, timezone)}</Text>
+              </View>
               <Text
                 className={[
                   'flex-1 text-sm',

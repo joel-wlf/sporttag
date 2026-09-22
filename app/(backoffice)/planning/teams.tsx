@@ -18,14 +18,13 @@ import { type TeamRow, useDeleteTeam, useTeams, useUpsertTeam } from '@/lib/api/
 import { useActiveEvent } from '@/providers/ActiveEventProvider';
 
 function TeamsContent() {
-  const { eventId, event } = useActiveEvent();
+  const { eventId } = useActiveEvent();
   const { data: teams } = useTeams(eventId);
   const upsert = useUpsertTeam(eventId ?? '');
   const remove = useDeleteTeam(eventId ?? '');
   const [editing, setEditing] = useState<TeamRow | 'new' | null>(null);
   const [quickOpen, setQuickOpen] = useState(false);
   const [tableError, setTableError] = useState<string | null>(null);
-  const locked = event?.status !== 'draft';
   const desktop = useDesktop();
 
   const handleDelete = async (team: TeamRow) => {
@@ -42,12 +41,10 @@ function TeamsContent() {
     <Screen>
       <Header
         actions={
-          !locked ? (
-            <>
-              <Button label="Schnellanlage" onPress={() => setQuickOpen(true)} variant="outline" />
-              <Button label="Neues Team" leftIcon="plus" onPress={() => setEditing('new')} />
-            </>
-          ) : undefined
+          <>
+            <Button label="Schnellanlage" onPress={() => setQuickOpen(true)} variant="outline" />
+            <Button label="Neues Team" leftIcon="plus" onPress={() => setEditing('new')} />
+          </>
         }
         description="Feste Teams innerhalb der Veranstaltung."
         eyebrow="PLANUNG"
@@ -56,7 +53,7 @@ function TeamsContent() {
       {!teams || teams.length === 0 ? (
         <Card>
           <EmptyState
-            action={!locked ? <Button label="Erstes Team anlegen" onPress={() => setEditing('new')} /> : undefined}
+            action={<Button label="Erstes Team anlegen" onPress={() => setEditing('new')} />}
             description="Lege Teams mit Name, Nummer und optionaler Farbe an."
             icon="user"
             title="Noch keine Teams"
@@ -124,7 +121,7 @@ function TeamsContent() {
                 icon="user"
                 key={team.id}
                 onPress={() => setEditing(team)}
-                showChevron={!locked}
+                showChevron
                 subtitle={team.participant_count ? `${team.participant_count} Teilnehmende` : undefined}
                 title={team.number ? `${team.number} · ${team.name}` : team.name}
               />

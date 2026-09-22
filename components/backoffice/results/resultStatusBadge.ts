@@ -6,6 +6,7 @@ export const resultBadgeTone: Record<ResultStatus, BadgeTone> = {
   open: 'neutral',
   accepted: 'success',
   corrected: 'accent',
+  withdrawn: 'neutral',
   needs_review: 'warning',
   conflict: 'danger',
   cancelled: 'neutral',

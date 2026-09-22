@@ -15,11 +15,10 @@ const modeOptions: { value: StaffAssignmentMode; label: string; description: str
 export function StaffAssignmentModeCard({ event }: { event: EventRow }) {
   const updateEvent = useUpdateEvent(event.id);
   const [error, setError] = useState<string | null>(null);
-  const locked = event.status !== 'draft';
   const mode = (event.staff_assignment_mode as StaffAssignmentMode) ?? 'station';
 
   const handleSelect = async (value: StaffAssignmentMode) => {
-    if (locked || value === mode) return;
+    if (value === mode) return;
     setError(null);
     try {
       await updateEvent.mutateAsync({ staff_assignment_mode: value });
@@ -47,7 +46,6 @@ export function StaffAssignmentModeCard({ event }: { event: EventRow }) {
           />
         ))}
       </View>
-      {locked ? <Badge tone="neutral">Veröffentlicht – Zuordnungsart ist gesperrt</Badge> : null}
       {error ? <Badge tone="danger">{error}</Badge> : null}
     </Card>
   );

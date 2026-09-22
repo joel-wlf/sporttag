@@ -9,7 +9,7 @@ import { FormSheet } from '@/components/ui/FormSheet';
 import { Icon } from '@/components/ui/Icon';
 import { useTokens } from '@/components/ui/theme';
 import { friendlyErrorMessage } from '@/lib/api/errors';
-import { useDismissSubmissions, useRecordResult, type ResultRevisionRow, type ResultSubmissionRow } from '@/lib/api/results';
+import { useDismissSubmissions, useRecordResult, useWithdrawResult, type ResultRevisionRow, type ResultSubmissionRow } from '@/lib/api/results';
 import { describeCurrentValues, diffSubmission, parsePayload, resultStatusLabel, type ResultRow } from '@/lib/results/derive';
 import { resultBadgeTone } from './resultStatusBadge';
 
@@ -60,15 +60,34 @@ export function ResultDetailSheet({
   const tokens = useTokens();
   const record = useRecordResult(eventId);
   const dismiss = useDismissSubmissions(eventId);
+  const withdraw = useWithdrawResult(eventId);
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawReason, setWithdrawReason] = useState('');
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
 
   if (!row) return null;
   const { match } = row;
   const matchSubmissions = submissions.filter((s) => s.match_id === match.id);
   const matchRevisions = revisions.filter((r) => r.match_id === match.id);
   const openSubmissions = matchSubmissions.filter((s) => s.status === 'conflict' || s.status === 'needs_review');
+
+  const confirmWithdraw = async () => {
+    if (!withdrawReason.trim()) {
+      setWithdrawError('Bitte eine Begründung angeben.');
+      return;
+    }
+    try {
+      await withdraw.mutateAsync({ matchId: match.id, reason: withdrawReason.trim() });
+      setWithdrawOpen(false);
+      setWithdrawReason('');
+      onClose();
+    } catch (err) {
+      setWithdrawError(friendlyErrorMessage(err));
+    }
+  };
 
   const open = (type: PendingAction['type'], submission: ResultSubmissionRow) => {
     setPending({ type, submission });
@@ -190,7 +209,26 @@ export function ResultDetailSheet({
             )}
           </Section>
 
-          <Button label="Ergebnis korrigieren" leftIcon="edit" onPress={onCorrect} variant="outline" />
+          <View className="flex-row flex-wrap gap-2">
+            <Button
+              label={match.current_result_version > 0 ? 'Ergebnis korrigieren' : 'Ergebnis manuell eintragen'}
+              leftIcon="edit"
+              onPress={onCorrect}
+              variant="outline"
+            />
+            {match.current_result_version > 0 ? (
+              <Button
+                label="Ergebnis löschen"
+                leftIcon="trash"
+                onPress={() => {
+                  setWithdrawReason('');
+                  setWithdrawError(null);
+                  setWithdrawOpen(true);
+                }}
+                variant="danger"
+              />
+            ) : null}
+          </View>
         </View>
       </FormSheet>
 
@@ -217,6 +255,27 @@ export function ResultDetailSheet({
           value={reason}
         />
         {error ? <Text className="text-[13px] font-semibold text-danger">{error}</Text> : null}
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        confirmLabel="Ergebnis löschen"
+        confirmVariant="danger"
+        description="Das Ergebnis wird zurückgezogen: Das Match ist wieder offen und zählt nicht mehr in der Tabelle. Die bisherigen Revisionen und Abgaben bleiben in der Historie erhalten."
+        isLoading={withdraw.isPending}
+        onCancel={() => setWithdrawOpen(false)}
+        onConfirm={() => void confirmWithdraw()}
+        title="Ergebnis löschen?"
+        visible={withdrawOpen}
+      >
+        <Field
+          autoFocus
+          label="Begründung"
+          onChangeText={setWithdrawReason}
+          onSubmitEditing={() => void confirmWithdraw()}
+          placeholder="z. B. falsches Match, Ergebnis doppelt erfasst"
+          value={withdrawReason}
+        />
+        {withdrawError ? <Text className="text-[13px] font-semibold text-danger">{withdrawError}</Text> : null}
       </ConfirmDialog>
     </>
   );

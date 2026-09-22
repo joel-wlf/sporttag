@@ -3,10 +3,12 @@ import * as store from './store';
 import { sha256 } from './identity';
 import type {
   DayEntry,
+  PackageBlock,
   PackageGame,
   PackageMatch,
   PackageStation,
   PackageStationSetup,
+  ResultPayloadValue,
   StationPackage,
 } from './types';
 
@@ -34,9 +36,77 @@ export async function getAnyStoredPackage() {
   return store.loadAnyPackage();
 }
 
+export type RemoteLiveState = {
+  matchId: string;
+  values: ResultPayloadValue[];
+  startedAt: string | null;
+  updatedAt: string;
+};
+
+/**
+ * Liest die geteilten Live-Zwischenstände eines Events (mehrere Geräte
+ * derselben Station sehen denselben Stand). RLS begrenzt den Zugriff über
+ * `private.has_event_access`. Siehe docs/datenkonzept.md Abschnitt 11.6.
+ */
+export async function fetchLiveStates(eventId: string): Promise<RemoteLiveState[]> {
+  const { data, error } = await supabase
+    .from('match_live_states')
+    .select('match_id, values, started_at, updated_at')
+    .eq('event_id', eventId);
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    matchId: row.match_id,
+    values: (row.values as ResultPayloadValue[] | null) ?? [],
+    startedAt: row.started_at,
+    updatedAt: row.updated_at,
+  }));
+}
+
+export type RemoteTeamVisit = {
+  participantId: string;
+  matchId: string;
+  teamId: string;
+  arrivedAt: string | null;
+  releasedAt: string | null;
+  updatedAt: string;
+};
+
+/**
+ * Liest den geteilten Laufzettel eines Events. Ein Gerät, das eine Station
+ * übernimmt, sieht damit die bereits erfassten Ankünfte des Vorgängergeräts
+ * (docs/datenkonzept.md Abschnitt 11.7).
+ */
+export async function fetchTeamVisits(eventId: string): Promise<RemoteTeamVisit[]> {
+  const { data, error } = await supabase
+    .from('team_station_visits')
+    .select('participant_id, match_id, team_id, arrived_at, released_at, updated_at')
+    .eq('event_id', eventId);
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    participantId: row.participant_id,
+    matchId: row.match_id,
+    teamId: row.team_id,
+    arrivedAt: row.arrived_at,
+    releasedAt: row.released_at,
+    updatedAt: row.updated_at,
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // Auswahlfunktionen
 // ---------------------------------------------------------------------------
+
+export const blockKindLabels: Record<PackageBlock['kind'], string> = {
+  play: 'Spielblock',
+  break: 'Pause',
+  final: 'Abschluss',
+  special: 'Besonders',
+};
+
+/** Blöcke haben keinen Namen; die Anzeige ergibt sich aus Art und Position. */
+export function blockLabel(block: PackageBlock): string {
+  return `${blockKindLabels[block.kind] ?? block.kind} ${block.position}`;
+}
 
 export function gameForSetup(pkg: StationPackage, setup: PackageStationSetup): PackageGame | undefined {
   return pkg.event_games.find((g) => g.id === setup.event_game_id);

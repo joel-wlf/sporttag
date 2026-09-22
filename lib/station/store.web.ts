@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   LocalCheckin,
+  LocalLiveState,
+  LocalTeamVisit,
   LocalResultSubmission,
   OutboxEntry,
   StationPackage,
@@ -23,6 +25,8 @@ type Db = {
   submissions: Record<string, LocalResultSubmission & { serverStatus?: string | null; serverVersion?: number | null }>;
   outbox: Record<string, OutboxEntry>;
   drafts: Record<string, unknown>;
+  liveStates: Record<string, LocalLiveState>;
+  teamVisits: Record<string, LocalTeamVisit>;
   toolState: Record<string, unknown>;
   positionCounter: number;
 };
@@ -39,6 +43,8 @@ function emptyDb(): Db {
     submissions: {},
     outbox: {},
     drafts: {},
+    liveStates: {},
+    teamVisits: {},
     toolState: {},
     positionCounter: 0,
   };
@@ -95,8 +101,16 @@ export async function ensureStationState(eventId: string, accessId: string) {
     nextSequence: 1,
     lastDownloadAt: null,
     lastManifestResult: null,
+    left: false,
   };
   db.stationState[eventId].accessId = accessId;
+  db.stationState[eventId].left = false;
+  await persist();
+}
+
+export async function setEventLeft(eventId: string, left: boolean) {
+  const db = await load();
+  if (db.stationState[eventId]) db.stationState[eventId].left = left;
   await persist();
 }
 
@@ -131,6 +145,16 @@ export async function clearStationSession(eventId: string) {
     db.stationState[eventId].activeCheckinId = null;
   }
   await persist();
+}
+
+/** Bewusster Reset: löscht alle lokalen Daten inklusive Geräte-ID und Journal. */
+export async function clearAllStationData() {
+  cache = emptyDb();
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Web-Speicher ist best effort; der leere Cache gilt für die Sitzung.
+  }
 }
 
 export async function savePackage(eventId: string, pkg: StationPackage, contentHash: string) {
@@ -302,6 +326,69 @@ export async function loadDraft<T>(matchId: string): Promise<T | null> {
 export async function clearDraft(matchId: string) {
   const db = await load();
   delete db.drafts[matchId];
+  await persist();
+}
+
+export async function saveLiveState(state: LocalLiveState) {
+  const db = await load();
+  db.liveStates[state.matchId] = state;
+  await persist();
+}
+
+export async function loadLiveState(matchId: string): Promise<LocalLiveState | null> {
+  const db = await load();
+  return db.liveStates[matchId] ?? null;
+}
+
+export async function loadLiveStates(eventId: string): Promise<LocalLiveState[]> {
+  const db = await load();
+  return Object.values(db.liveStates).filter((s) => s.eventId === eventId);
+}
+
+export async function loadDirtyLiveStates(eventId: string): Promise<LocalLiveState[]> {
+  const db = await load();
+  return Object.values(db.liveStates).filter((s) => s.eventId === eventId && s.dirty);
+}
+
+export async function markLiveStateSynced(matchId: string, pushedUpdatedAt: string) {
+  const db = await load();
+  const state = db.liveStates[matchId];
+  if (state && state.updatedAt === pushedUpdatedAt) state.dirty = false;
+  await persist();
+}
+
+export async function clearLiveState(matchId: string) {
+  const db = await load();
+  delete db.liveStates[matchId];
+  await persist();
+}
+
+export async function saveTeamVisit(visit: LocalTeamVisit) {
+  const db = await load();
+  // Ältere gespeicherte Stände kennen den Schlüssel noch nicht.
+  db.teamVisits = { ...(db.teamVisits ?? {}), [visit.participantId]: visit };
+  await persist();
+}
+
+export async function loadTeamVisit(participantId: string): Promise<LocalTeamVisit | null> {
+  const db = await load();
+  return db.teamVisits?.[participantId] ?? null;
+}
+
+export async function loadTeamVisits(eventId: string): Promise<LocalTeamVisit[]> {
+  const db = await load();
+  return Object.values(db.teamVisits ?? {}).filter((v) => v.eventId === eventId);
+}
+
+export async function loadDirtyTeamVisits(eventId: string): Promise<LocalTeamVisit[]> {
+  const db = await load();
+  return Object.values(db.teamVisits ?? {}).filter((v) => v.eventId === eventId && v.dirty);
+}
+
+export async function markTeamVisitSynced(participantId: string, pushedUpdatedAt: string) {
+  const db = await load();
+  const visit = db.teamVisits?.[participantId];
+  if (visit && visit.updatedAt === pushedUpdatedAt) visit.dirty = false;
   await persist();
 }
 

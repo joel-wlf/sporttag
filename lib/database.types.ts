@@ -703,6 +703,55 @@ export type Database = {
           },
         ]
       }
+      match_live_states: {
+        Row: {
+          event_id: string
+          match_id: string
+          started_at: string | null
+          updated_at: string
+          updated_by_device_id: string | null
+          values: Json
+        }
+        Insert: {
+          event_id: string
+          match_id: string
+          started_at?: string | null
+          updated_at?: string
+          updated_by_device_id?: string | null
+          values?: Json
+        }
+        Update: {
+          event_id?: string
+          match_id?: string
+          started_at?: string | null
+          updated_at?: string
+          updated_by_device_id?: string | null
+          values?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_live_states_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_live_states_event_id_match_id_fkey"
+            columns: ["event_id", "match_id"]
+            isOneToOne: true
+            referencedRelation: "matches"
+            referencedColumns: ["event_id", "id"]
+          },
+          {
+            foreignKeyName: "match_live_states_updated_by_device_id_fkey"
+            columns: ["updated_by_device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       match_participants: {
         Row: {
           created_at: string
@@ -1352,6 +1401,75 @@ export type Database = {
           },
         ]
       }
+      team_station_visits: {
+        Row: {
+          arrived_at: string | null
+          event_id: string
+          match_id: string
+          participant_id: string
+          released_at: string | null
+          team_id: string
+          updated_at: string
+          updated_by_device_id: string | null
+        }
+        Insert: {
+          arrived_at?: string | null
+          event_id: string
+          match_id: string
+          participant_id: string
+          released_at?: string | null
+          team_id: string
+          updated_at?: string
+          updated_by_device_id?: string | null
+        }
+        Update: {
+          arrived_at?: string | null
+          event_id?: string
+          match_id?: string
+          participant_id?: string
+          released_at?: string | null
+          team_id?: string
+          updated_at?: string
+          updated_by_device_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_station_visits_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_station_visits_event_id_participant_id_fkey"
+            columns: ["event_id", "participant_id"]
+            isOneToOne: true
+            referencedRelation: "match_participants"
+            referencedColumns: ["event_id", "id"]
+          },
+          {
+            foreignKeyName: "team_station_visits_event_id_match_id_fkey"
+            columns: ["event_id", "match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["event_id", "id"]
+          },
+          {
+            foreignKeyName: "team_station_visits_event_id_team_id_fkey"
+            columns: ["event_id", "team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["event_id", "id"]
+          },
+          {
+            foreignKeyName: "team_station_visits_updated_by_device_id_fkey"
+            columns: ["updated_by_device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teams: {
         Row: {
           color: string | null
@@ -1713,6 +1831,32 @@ export type Database = {
           status: string
         }[]
       }
+      sync_match_live: {
+        Args: {
+          p_checkin_id: string
+          p_device_access_id: string
+          p_device_id: string
+          p_event_id: string
+          p_match_id: string
+          p_started: boolean
+          p_updated_at: string
+          p_values: Json
+        }
+        Returns: {
+          event_id: string
+          match_id: string
+          started_at: string | null
+          updated_at: string
+          updated_by_device_id: string | null
+          values: Json
+        }
+        SetofOptions: {
+          from: "*"
+          to: "match_live_states"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       sync_station_checkin: {
         Args: {
           p_checked_in_at: string
@@ -1739,6 +1883,45 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      sync_team_visit: {
+        Args: {
+          p_arrived_at?: string
+          p_checkin_id: string
+          p_device_access_id: string
+          p_device_id: string
+          p_event_id: string
+          p_participant_id: string
+          p_released_at?: string
+          p_updated_at?: string
+        }
+        Returns: {
+          arrived_at: string | null
+          event_id: string
+          match_id: string
+          participant_id: string
+          released_at: string | null
+          team_id: string
+          updated_at: string
+          updated_by_device_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "team_station_visits"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      withdraw_result: {
+        Args: {
+          p_event_id: string
+          p_match_id: string
+          p_reason: string
+        }
+        Returns: {
+          request_id: string
+          result_version: number
+        }[]
       }
     }
     Enums: {

@@ -12,12 +12,13 @@ import type { ResultPayload, ResultPayloadValue } from '@/lib/station/types';
  * Abschnitt 4 und 5). Reine Funktionen, analog zu lib/live/derive.ts.
  */
 
-export type ResultStatus = 'open' | 'accepted' | 'corrected' | 'needs_review' | 'conflict' | 'cancelled';
+export type ResultStatus = 'open' | 'accepted' | 'corrected' | 'withdrawn' | 'needs_review' | 'conflict' | 'cancelled';
 
 export const resultStatusLabel: Record<ResultStatus, string> = {
   open: 'Kein Ergebnis',
   accepted: 'Angenommen',
   corrected: 'Korrigiert',
+  withdrawn: 'Zurückgezogen',
   needs_review: 'Klärung nötig',
   conflict: 'Konflikt',
   cancelled: 'Abgesagt',
@@ -29,6 +30,7 @@ export const resultStatusTone: Record<ResultStatus, ResultTone> = {
   open: 'subtle',
   accepted: 'success',
   corrected: 'accent',
+  withdrawn: 'subtle',
   needs_review: 'warning',
   conflict: 'danger',
   cancelled: 'subtle',
@@ -89,6 +91,7 @@ export function buildResultRows({
     else if (openSubmissions.some((s) => s.status === 'conflict')) status = 'conflict';
     else if (openSubmissions.some((s) => s.status === 'needs_review')) status = 'needs_review';
     else if (match.current_result_version === 0) status = 'open';
+    else if (currentValues.length === 0) status = 'withdrawn';
     else if (match.current_result_version > 1) status = 'corrected';
     else status = 'accepted';
 
@@ -177,7 +180,7 @@ export function diffSubmission(
   });
 }
 
-export const resultStatusOrder: ResultStatus[] = ['conflict', 'needs_review', 'open', 'accepted', 'corrected', 'cancelled'];
+export const resultStatusOrder: ResultStatus[] = ['conflict', 'needs_review', 'open', 'accepted', 'corrected', 'withdrawn', 'cancelled'];
 
 /** Liest eine gespeicherte Payload (Json-Spalte) als ResultPayload, defensiv gegen leere/fremde Formen. */
 export function parsePayload(payload: unknown): ResultPayload {

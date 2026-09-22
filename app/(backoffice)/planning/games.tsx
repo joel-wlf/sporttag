@@ -42,7 +42,6 @@ function GamesContent() {
   const [editingGame, setEditingGame] = useState<EventGameRow | 'new' | null>(null);
   const [copyOpen, setCopyOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const locked = event?.status !== 'draft';
   const desktop = useDesktop();
 
   const modeLabel = (mode: string) => (mode === 'win_draw_loss' ? 'Sieg/Unentschieden/Niederlage' : mode === 'placement' ? 'Platzierung' : 'Zahlwert');
@@ -85,7 +84,7 @@ function GamesContent() {
       />
 
       <Section
-        action={!locked ? <Button label="Neue Regel" leftIcon="plus" onPress={() => setEditingRule('new')} size="sm" /> : undefined}
+        action={<Button label="Neue Regel" leftIcon="plus" onPress={() => setEditingRule('new')} size="sm" />}
         title="Wertungsregeln"
       >
         {!rules || rules.length === 0 ? (
@@ -121,9 +120,9 @@ function GamesContent() {
                     <View className="items-end">
                       {event?.default_scoring_rule_id === rule.id ? (
                         <Badge tone="primary">Standard</Badge>
-                      ) : !locked ? (
+                      ) : (
                         <Button label="Als Standard" onPress={() => handleSetDefault(rule.id)} size="sm" variant="outline" />
-                      ) : null}
+                      )}
                     </View>
                   ),
                 },
@@ -157,16 +156,16 @@ function GamesContent() {
                     <ListRow
                       icon="results"
                       onPress={() => setEditingRule(rule)}
-                      showChevron={!locked}
+                      showChevron
                       subtitle={modeLabel(rule.mode)}
                       title={rule.name}
                     />
                   </View>
                   {event?.default_scoring_rule_id === rule.id ? (
                     <Badge tone="primary">Standard</Badge>
-                  ) : !locked ? (
+                  ) : (
                     <Button label="Als Standard" onPress={() => handleSetDefault(rule.id)} size="sm" variant="outline" />
-                  ) : null}
+                  )}
                 </View>
               ))}
             </View>
@@ -177,12 +176,10 @@ function GamesContent() {
 
       <Section
         action={
-          !locked ? (
-            <>
-              <Button label="Aus Vorlage" onPress={() => setCopyOpen(true)} size="sm" variant="outline" />
-              <Button label="Neues Spiel" leftIcon="plus" onPress={() => setEditingGame('new')} size="sm" />
-            </>
-          ) : undefined
+          <>
+            <Button label="Aus Vorlage" onPress={() => setCopyOpen(true)} size="sm" variant="outline" />
+            <Button label="Neues Spiel" leftIcon="plus" onPress={() => setEditingGame('new')} size="sm" />
+          </>
         }
         title="Event-Spiele"
       >
@@ -271,7 +268,7 @@ function GamesContent() {
             eventId={eventId}
             key={`rule-${editingRule === 'new' ? 'new' : (editingRule?.id ?? 'closed')}`}
             onClose={() => setEditingRule(null)}
-            rule={locked ? null : editingRule}
+            rule={editingRule}
           />
           <EventGameFormModal
             eventId={eventId}

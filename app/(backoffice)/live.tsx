@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Platform, ScrollView, Text, View, useWindowDimensions, type ViewStyle } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, Text, View, useWindowDimensions, type ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import { RequireEvent } from '@/components/backoffice/RequireEvent';
 import { LiveFilterChips, type LiveFilter } from '@/components/backoffice/live/LiveFilterChips';
@@ -7,6 +7,8 @@ import { LiveStatusBar } from '@/components/backoffice/live/LiveStatusBar';
 import { MapLegend } from '@/components/backoffice/live/MapLegend';
 import { StationLiveDetail } from '@/components/backoffice/live/StationLiveDetail';
 import { StationLiveList } from '@/components/backoffice/live/StationLiveList';
+import { TimelinePanel } from '@/components/backoffice/live/TimelinePanel';
+import type { GanttMode } from '@/components/backoffice/live/TimelineGantt';
 import { statusColor } from '@/components/backoffice/live/liveStatusColor';
 import { SatelliteMap } from '@/components/map/SatelliteMap';
 import type { MapPin } from '@/components/map/types';
@@ -21,12 +23,20 @@ import { useDesktop } from '@/components/ui/useDesktop';
 import { useDeviceSyncOverview } from '@/lib/api/devices';
 import { venueBoundsFromEvent } from '@/lib/api/events';
 import { useEventGames } from '@/lib/api/games';
-import { useActiveCheckins, useCurrentResultValues, useLiveRealtime, useOpenSubmissions } from '@/lib/api/live';
+import {
+  useActiveCheckins,
+  useCurrentResultValues,
+  useLiveRealtime,
+  useMatchLiveStates,
+  useOpenSubmissions,
+  useTeamVisits,
+} from '@/lib/api/live';
 import { useBlocks, useMatchParticipants, useMatches, useRounds, useStationSetups, type RoundRow } from '@/lib/api/schedule';
 import { useEventStaff } from '@/lib/api/staff';
 import { useStations } from '@/lib/api/stations';
 import { useTeams } from '@/lib/api/teams';
 import { STALE_DEVICE_MS, buildStationLive, liveGroupOf, pickCurrentRound } from '@/lib/live/derive';
+import { buildTimeline } from '@/lib/live/timeline';
 import { useEventHealthLiveActivity } from '@/lib/live/useEventHealthLiveActivity';
 import { useActiveEvent } from '@/providers/ActiveEventProvider';
 
@@ -54,6 +64,8 @@ function LiveContent() {
   const { data: activeCheckins } = useActiveCheckins(eventId);
   const { data: openSubmissions } = useOpenSubmissions(eventId);
   const { data: currentResultValues } = useCurrentResultValues(eventId);
+  const { data: liveStates } = useMatchLiveStates(eventId);
+  const { data: teamVisits } = useTeamVisits(eventId);
   const { connected, lastUpdated } = useLiveRealtime(eventId);
 
   const [now, setNow] = useState(() => new Date());
@@ -81,6 +93,9 @@ function LiveContent() {
 
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
   const [filter, setFilter] = useState<LiveFilter>('all');
+  // Karte beantwortet "wo", Zeitleiste beantwortet "wie weit sind wir".
+  const [view, setView] = useState<'map' | 'timeline'>('map');
+  const [ganttMode, setGanttMode] = useState<GanttMode>('station');
 
   const rows = useMemo(
     () =>
@@ -97,9 +112,29 @@ function LiveContent() {
         devices: deviceSync ?? [],
         openSubmissions: openSubmissions ?? [],
         currentResultValues: currentResultValues ?? [],
+        liveStates: liveStates ?? [],
         now,
       }),
-    [stations, selectedRound, blocks, stationSetups, matches, matchParticipants, teams, eventGames, activeCheckins, deviceSync, openSubmissions, currentResultValues, now],
+    [stations, selectedRound, blocks, stationSetups, matches, matchParticipants, teams, eventGames, activeCheckins, deviceSync, openSubmissions, currentResultValues, liveStates, now],
+  );
+
+  const timeline = useMemo(
+    () =>
+      buildTimeline(
+        {
+          rounds: rounds ?? [],
+          blocks: blocks ?? [],
+          stationSetups: stationSetups ?? [],
+          stations: stations ?? [],
+          matches: matches ?? [],
+          participants: matchParticipants ?? [],
+          teams: teams ?? [],
+          visits: teamVisits ?? [],
+          liveStartedAt: Object.fromEntries((liveStates ?? []).map((s) => [s.match_id, s.started_at])),
+        },
+        now,
+      ),
+    [rounds, blocks, stationSetups, stations, matches, matchParticipants, teams, teamVisits, liveStates, now],
   );
 
   const eventHealthActivity = useEventHealthLiveActivity({
@@ -161,6 +196,46 @@ function LiveContent() {
       </View>
     ) : null;
 
+  const viewSwitch = (
+    <View className="flex-row gap-2">
+      {([
+        { key: 'map' as const, label: 'Karte', icon: 'map-pin' as const },
+        { key: 'timeline' as const, label: 'Zeitleiste', icon: 'clock' as const },
+      ]).map((option) => {
+        const active = view === option.key;
+        return (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            className={[
+              'flex-row items-center gap-2 rounded-full border px-3.5 py-2',
+              active ? 'border-primary bg-primary' : 'border-line bg-surface',
+            ].join(' ')}
+            key={option.key}
+            onPress={() => setView(option.key)}
+          >
+            <Icon color={active ? tokens.onPrimary : tokens.subtle} name={option.icon} size={14} />
+            <Text className={['text-[13px] font-bold', active ? 'text-on-primary' : 'text-ink'].join(' ')}>
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
+  const timelinePanel = (
+    <TimelinePanel
+      mode={ganttMode}
+      now={now}
+      onModeChange={setGanttMode}
+      onSelectStation={setSelectedStationId}
+      selectedStationId={selectedStationId}
+      timeline={timeline}
+      timezone={event?.timezone ?? 'Europe/Berlin'}
+    />
+  );
+
   const list = (
     <View className="gap-3">
       <LiveFilterChips onChange={setFilter} rows={rows} value={filter} />
@@ -203,17 +278,22 @@ function LiveContent() {
         <Header eyebrow="VERANSTALTUNGSTAG" title="Live-Betrieb" />
         {draftNotice}
         {statusBar}
+        {viewSwitch}
+        {view === 'map' ? (
           <Card className="overflow-hidden" style={{ gap: 0, padding: 0 }}>
-          <SatelliteMap
-            bounds={bounds}
-            height={Math.max(260, Math.round(windowHeight * 0.4))}
-            onPinPress={setSelectedStationId}
-            pins={pins}
-            fitToPins
-            scrollWheelZoom={false}
-          />
-          <MapLegend />
-        </Card>
+            <SatelliteMap
+              bounds={bounds}
+              height={Math.max(260, Math.round(windowHeight * 0.4))}
+              onPinPress={setSelectedStationId}
+              pins={pins}
+              fitToPins
+              scrollWheelZoom={false}
+            />
+            <MapLegend />
+          </Card>
+        ) : (
+          timelinePanel
+        )}
         {list}
 
         <Modal
@@ -249,12 +329,17 @@ function LiveContent() {
       <Header eyebrow="VERANSTALTUNGSTAG" title="Live-Betrieb" />
       {draftNotice}
       {statusBar}
+      {viewSwitch}
       <View className="flex-row items-start gap-5">
         <View className="min-w-0 flex-1" style={stickyStyle}>
-          <Card className="overflow-hidden" style={{ gap: 0, padding: 0 }}>
-            <SatelliteMap bounds={bounds} height={mapHeight} onPinPress={setSelectedStationId} fitToPins pins={pins} scrollWheelZoom={false} />
-            <MapLegend />
-          </Card>
+          {view === 'map' ? (
+            <Card className="overflow-hidden" style={{ gap: 0, padding: 0 }}>
+              <SatelliteMap bounds={bounds} height={mapHeight} onPinPress={setSelectedStationId} fitToPins pins={pins} scrollWheelZoom={false} />
+              <MapLegend />
+            </Card>
+          ) : (
+            timelinePanel
+          )}
         </View>
         <View className="w-[420px] gap-4">
           {selectedRow ? (

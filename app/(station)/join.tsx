@@ -5,6 +5,7 @@ import { Screen } from '@/components/layout/Screen';
 import { Icon } from '@/components/ui/Icon';
 import { useTokens } from '@/components/ui/theme';
 import { friendlyErrorMessage } from '@/lib/api/errors';
+import { confirmAsync } from '@/lib/confirm';
 import { haptic } from '@/lib/haptics';
 import { getStoredPackage } from '@/lib/station/package';
 import { useStationSession } from '@/providers/StationSessionProvider';
@@ -14,7 +15,7 @@ const CODE_LENGTH = 6;
 export default function StationJoinScreen() {
   const router = useRouter();
   const tokens = useTokens();
-  const { isReady, eventId, staffId, joinWithCode, retryDownload } = useStationSession();
+  const { isReady, eventId, staffId, joinWithCode, retryDownload, resetDevice } = useStationSession();
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [downloadFailed, setDownloadFailed] = useState(false);
@@ -67,6 +68,23 @@ export default function StationJoinScreen() {
     }
     haptic('success');
     router.push('/who');
+  };
+
+  const handleReset = async () => {
+    if (
+      !(await confirmAsync(
+        'Alle lokalen Daten dieses Geräts werden gelöscht, auch noch nicht übertragene Ergebnisse.',
+        'Gerät zurücksetzen?',
+        'Zurücksetzen',
+      ))
+    ) {
+      return;
+    }
+    haptic('warning');
+    setCode('');
+    setError(null);
+    setDownloadFailed(false);
+    await resetDevice();
   };
 
   const digits = Array.from({ length: CODE_LENGTH }, (_, index) => code[index] ?? '');
@@ -129,13 +147,22 @@ export default function StationJoinScreen() {
         />
       </View>
 
-      <Pressable
-        accessibilityRole="link"
-        className="items-center py-3 active:opacity-60"
-        onPress={() => router.replace('/login')}
-      >
-        <Text className="text-sm font-semibold text-subtle">Backoffice</Text>
-      </Pressable>
+      <View className="items-center gap-1 pb-2">
+        <Pressable
+          accessibilityRole="link"
+          className="items-center py-2 active:opacity-60"
+          onPress={() => router.replace('/login')}
+        >
+          <Text className="text-sm font-semibold text-subtle">Backoffice</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          className="items-center py-1 active:opacity-60"
+          onPress={() => void handleReset()}
+        >
+          <Text className="text-xs font-semibold text-danger">Gerät zurücksetzen</Text>
+        </Pressable>
+      </View>
     </Screen>
   );
 }

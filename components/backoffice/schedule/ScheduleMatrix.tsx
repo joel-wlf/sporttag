@@ -17,7 +17,6 @@ export function ScheduleMatrix({
   games,
   teams,
   timeZone,
-  locked,
   cellFlags,
   onPressRow,
   onPressCell,
@@ -29,7 +28,6 @@ export function ScheduleMatrix({
   games: Map<string, MatrixGame>;
   teams: Map<string, MatrixTeam>;
   timeZone: string;
-  locked: boolean;
   cellFlags: Map<string, Set<string>>;
   onPressRow: (roundId: string) => void;
   onPressCell: (roundId: string, stationId: string) => void;
@@ -38,7 +36,7 @@ export function ScheduleMatrix({
   onAddStation: () => void;
 }) {
   const tokens = useTokens();
-  const width = TIME_COL + matrix.stations.length * STATION_COL + (locked ? 0 : STATION_COL);
+  const width = TIME_COL + matrix.stations.length * STATION_COL + STATION_COL;
 
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator>
@@ -52,7 +50,6 @@ export function ScheduleMatrix({
             <Pressable
               accessibilityRole="button"
               className="justify-end px-3 py-3 active:opacity-70"
-              disabled={locked}
               key={station.id}
               onPress={() => onPressStation(station.id)}
               style={{ width: STATION_COL }}
@@ -62,18 +59,16 @@ export function ScheduleMatrix({
               </Text>
             </Pressable>
           ))}
-          {locked ? null : (
-            <Pressable
-              accessibilityLabel="Stationen unter Gelände & Stationen verwalten"
-              accessibilityRole="link"
-              className="flex-row items-center gap-1.5 px-3 py-3 active:opacity-70"
-              onPress={onAddStation}
-              style={{ width: STATION_COL }}
-            >
-              <Icon color={tokens.primary} name="map-pin" size={16} />
-              <Text className="text-[14px] font-bold text-primary">Stationen</Text>
-            </Pressable>
-          )}
+          <Pressable
+            accessibilityLabel="Stationen unter Gelände & Stationen verwalten"
+            accessibilityRole="link"
+            className="flex-row items-center gap-1.5 px-3 py-3 active:opacity-70"
+            onPress={onAddStation}
+            style={{ width: STATION_COL }}
+          >
+            <Icon color={tokens.primary} name="map-pin" size={16} />
+            <Text className="text-[14px] font-bold text-primary">Stationen</Text>
+          </Pressable>
         </View>
 
         {matrix.rows.map((row) => {
@@ -103,13 +98,12 @@ export function ScheduleMatrix({
                           'min-h-[36px] flex-row items-center justify-between gap-2 rounded-lg border px-2.5',
                           game ? 'border-line bg-surface' : 'border-dashed border-primary bg-transparent',
                         ].join(' ')}
-                        disabled={locked}
                         onPress={() => onPressGame(row.block.id, station.id)}
                       >
                         <Text className={['flex-1 text-[13px] font-semibold', game ? 'text-ink' : 'text-primary'].join(' ')} numberOfLines={1}>
                           {game ? game.name : 'Spiel wählen'}
                         </Text>
-                        {locked ? null : <Icon name="chevron-down" size={14} />}
+                        <Icon name="chevron-down" size={14} />
                       </Pressable>
                     </View>
                   );
@@ -122,7 +116,6 @@ export function ScheduleMatrix({
             return (
               <Pressable
                 className="flex-row items-center border-b border-line active:opacity-80"
-                disabled={locked}
                 key={row.round.id}
                 onPress={() => onPressRow(row.round.id)}
               >
@@ -145,7 +138,6 @@ export function ScheduleMatrix({
               <Pressable
                 accessibilityRole="button"
                 className="justify-center px-3 py-2 active:opacity-70"
-                disabled={locked}
                 onPress={() => onPressRow(row.round.id)}
                 style={{ width: TIME_COL }}
               >
@@ -158,7 +150,7 @@ export function ScheduleMatrix({
               {matrix.stations.map((station) => {
                 const cell = matrix.cells.get(cellKey(row.round.id, station.id));
                 const flags = cellFlags.get(cellKey(row.round.id, station.id));
-                const disabled = locked || !cell?.gameId;
+                const disabled = !cell?.gameId;
                 return (
                   <View className="p-1.5" key={station.id} style={{ width: STATION_COL }}>
                     <Pressable

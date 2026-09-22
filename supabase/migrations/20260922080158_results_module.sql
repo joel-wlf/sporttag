@@ -160,7 +160,7 @@ begin
   ) values (
     v_request_id, p_event_id, p_match_id, null, (select auth.uid()), null, null,
     null, p_base_result_version, v_plan_version, p_payload,
-    encode(digest(p_payload::text, 'sha256'), 'hex'), 'accepted', now()
+    encode(extensions.digest(p_payload::text, 'sha256'), 'hex'), 'accepted', now()
   );
 
   v_version := v_match.current_result_version + 1;

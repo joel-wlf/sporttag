@@ -1,6 +1,8 @@
 import * as SQLite from 'expo-sqlite';
 import type {
   LocalCheckin,
+  LocalLiveState,
+  LocalTeamVisit,
   LocalResultSubmission,
   OutboxEntry,
   OutboxKind,
@@ -42,7 +44,8 @@ async function openDb() {
       active_checkin_id TEXT,
       next_sequence INTEGER NOT NULL DEFAULT 1,
       last_download_at TEXT,
-      last_manifest_result TEXT
+      last_manifest_result TEXT,
+      left INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS local_event_packages (
@@ -97,6 +100,28 @@ async function openDb() {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS local_live_states (
+      match_id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL,
+      checkin_id TEXT NOT NULL,
+      values_json TEXT NOT NULL,
+      started INTEGER NOT NULL DEFAULT 0,
+      dirty INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS local_team_visits (
+      participant_id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL,
+      match_id TEXT NOT NULL,
+      team_id TEXT NOT NULL,
+      checkin_id TEXT NOT NULL,
+      arrived_at TEXT,
+      released_at TEXT,
+      dirty INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS local_tool_state (
       id TEXT PRIMARY KEY,
       event_id TEXT NOT NULL,
@@ -106,6 +131,12 @@ async function openDb() {
       updated_at TEXT NOT NULL
     );
   `);
+  // Bestehende Installationen erhalten die Spalte nachträglich.
+  try {
+    await db.execAsync('ALTER TABLE station_state ADD COLUMN left INTEGER NOT NULL DEFAULT 0');
+  } catch {
+    // Spalte existiert bereits.
+  }
   return db;
 }
 
@@ -135,6 +166,8 @@ export type StationState = {
   nextSequence: number;
   lastDownloadAt: string | null;
   lastManifestResult: string | null;
+  /** True, wenn die Veranstaltung bewusst verlassen wurde (kein Auto-Weiter beim Start). */
+  left: boolean;
 };
 
 export async function getStationState(eventId: string): Promise<StationState | null> {
@@ -147,6 +180,7 @@ export async function getStationState(eventId: string): Promise<StationState | n
     next_sequence: number;
     last_download_at: string | null;
     last_manifest_result: string | null;
+    left: number;
   }>('SELECT * FROM station_state WHERE event_id = ?', eventId);
   if (!row) return null;
   return {
@@ -157,6 +191,7 @@ export async function getStationState(eventId: string): Promise<StationState | n
     nextSequence: row.next_sequence,
     lastDownloadAt: row.last_download_at,
     lastManifestResult: row.last_manifest_result,
+    left: row.left === 1,
   };
 }
 
@@ -170,11 +205,17 @@ export async function getAnyStationState(): Promise<StationState | null> {
 export async function ensureStationState(eventId: string, accessId: string) {
   const db = await getDb();
   await db.runAsync(
-    `INSERT INTO station_state (event_id, access_id, next_sequence) VALUES (?, ?, 1)
-     ON CONFLICT(event_id) DO UPDATE SET access_id = excluded.access_id`,
+    `INSERT INTO station_state (event_id, access_id, next_sequence, left) VALUES (?, ?, 1, 0)
+     ON CONFLICT(event_id) DO UPDATE SET access_id = excluded.access_id, left = 0`,
     eventId,
     accessId,
   );
+}
+
+/** Markiert die Veranstaltung als bewusst verlassen bzw. (bei erneutem Beitritt) wieder aktiv. */
+export async function setEventLeft(eventId: string, left: boolean) {
+  const db = await getDb();
+  await db.runAsync('UPDATE station_state SET left = ? WHERE event_id = ?', left ? 1 : 0, eventId);
 }
 
 export async function setStaffId(eventId: string, staffId: string) {
@@ -200,6 +241,31 @@ export async function setLastManifestResult(eventId: string, json: string) {
 export async function clearStationSession(eventId: string) {
   const db = await getDb();
   await db.runAsync('UPDATE station_state SET staff_id = NULL, active_checkin_id = NULL WHERE event_id = ?', eventId);
+}
+
+/**
+ * Löscht sämtliche lokalen Stationsdaten inklusive Geräte-ID und Journal.
+ * Nur für den bewussten, bestätigten Reset durch die Bedienperson gedacht —
+ * nicht bei Logout, Fehlerbehandlung oder Cache-Erneuerung (siehe
+ * docs/datenkonzept.md Abschnitt 11.2). Nicht übertragene Ergebnisse gehen
+ * dabei verloren.
+ */
+export async function clearAllStationData() {
+  const db = await getDb();
+  await db.withTransactionAsync(async () => {
+    await db.execAsync(`
+      DELETE FROM local_outbox;
+      DELETE FROM local_result_submissions;
+      DELETE FROM local_checkins;
+      DELETE FROM local_live_states;
+      DELETE FROM local_team_visits;
+      DELETE FROM local_result_drafts;
+      DELETE FROM local_tool_state;
+      DELETE FROM local_event_packages;
+      DELETE FROM station_state;
+      DELETE FROM device;
+    `);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -527,6 +593,199 @@ export async function loadDraft<T>(matchId: string): Promise<T | null> {
 export async function clearDraft(matchId: string) {
   const db = await getDb();
   await db.runAsync('DELETE FROM local_result_drafts WHERE match_id = ?', matchId);
+}
+
+// ---------------------------------------------------------------------------
+// Live-Zwischenstand (fortlaufend, nicht revisionsbasiert)
+// ---------------------------------------------------------------------------
+
+function mapLiveStateRow(r: {
+  match_id: string;
+  event_id: string;
+  checkin_id: string;
+  values_json: string;
+  started: number;
+  dirty: number;
+  updated_at: string;
+}): LocalLiveState {
+  return {
+    matchId: r.match_id,
+    eventId: r.event_id,
+    checkinId: r.checkin_id,
+    values: JSON.parse(r.values_json),
+    started: r.started === 1,
+    dirty: r.dirty === 1,
+    updatedAt: r.updated_at,
+  };
+}
+
+export async function saveLiveState(state: LocalLiveState) {
+  const db = await getDb();
+  await db.runAsync(
+    `INSERT INTO local_live_states (match_id, event_id, checkin_id, values_json, started, dirty, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(match_id) DO UPDATE SET
+       event_id = excluded.event_id,
+       checkin_id = excluded.checkin_id,
+       values_json = excluded.values_json,
+       started = excluded.started,
+       dirty = excluded.dirty,
+       updated_at = excluded.updated_at`,
+    state.matchId,
+    state.eventId,
+    state.checkinId,
+    JSON.stringify(state.values),
+    state.started ? 1 : 0,
+    state.dirty ? 1 : 0,
+    state.updatedAt,
+  );
+}
+
+export async function loadLiveState(matchId: string): Promise<LocalLiveState | null> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{
+    match_id: string;
+    event_id: string;
+    checkin_id: string;
+    values_json: string;
+    started: number;
+    dirty: number;
+    updated_at: string;
+  }>('SELECT * FROM local_live_states WHERE match_id = ?', matchId);
+  return row ? mapLiveStateRow(row) : null;
+}
+
+export async function loadLiveStates(eventId: string): Promise<LocalLiveState[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<{
+    match_id: string;
+    event_id: string;
+    checkin_id: string;
+    values_json: string;
+    started: number;
+    dirty: number;
+    updated_at: string;
+  }>('SELECT * FROM local_live_states WHERE event_id = ?', eventId);
+  return rows.map(mapLiveStateRow);
+}
+
+export async function loadDirtyLiveStates(eventId: string): Promise<LocalLiveState[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<{
+    match_id: string;
+    event_id: string;
+    checkin_id: string;
+    values_json: string;
+    started: number;
+    dirty: number;
+    updated_at: string;
+  }>('SELECT * FROM local_live_states WHERE event_id = ? AND dirty = 1', eventId);
+  return rows.map(mapLiveStateRow);
+}
+
+/** Markiert einen Stand nur dann als übertragen, wenn seither nichts Neues kam. */
+export async function markLiveStateSynced(matchId: string, pushedUpdatedAt: string) {
+  const db = await getDb();
+  await db.runAsync(
+    'UPDATE local_live_states SET dirty = 0 WHERE match_id = ? AND updated_at = ?',
+    matchId,
+    pushedUpdatedAt,
+  );
+}
+
+export async function clearLiveState(matchId: string) {
+  const db = await getDb();
+  await db.runAsync('DELETE FROM local_live_states WHERE match_id = ?', matchId);
+}
+
+// ---------------------------------------------------------------------------
+// Laufzettel der Gruppen (Ankunft/Weiterschickung an der Station)
+// ---------------------------------------------------------------------------
+
+type TeamVisitRow = {
+  participant_id: string;
+  event_id: string;
+  match_id: string;
+  team_id: string;
+  checkin_id: string;
+  arrived_at: string | null;
+  released_at: string | null;
+  dirty: number;
+  updated_at: string;
+};
+
+function mapTeamVisitRow(r: TeamVisitRow): LocalTeamVisit {
+  return {
+    participantId: r.participant_id,
+    eventId: r.event_id,
+    matchId: r.match_id,
+    teamId: r.team_id,
+    checkinId: r.checkin_id,
+    arrivedAt: r.arrived_at,
+    releasedAt: r.released_at,
+    dirty: r.dirty === 1,
+    updatedAt: r.updated_at,
+  };
+}
+
+export async function saveTeamVisit(visit: LocalTeamVisit) {
+  const db = await getDb();
+  await db.runAsync(
+    `INSERT INTO local_team_visits (participant_id, event_id, match_id, team_id, checkin_id, arrived_at, released_at, dirty, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(participant_id) DO UPDATE SET
+       event_id = excluded.event_id,
+       match_id = excluded.match_id,
+       team_id = excluded.team_id,
+       checkin_id = excluded.checkin_id,
+       arrived_at = excluded.arrived_at,
+       released_at = excluded.released_at,
+       dirty = excluded.dirty,
+       updated_at = excluded.updated_at`,
+    visit.participantId,
+    visit.eventId,
+    visit.matchId,
+    visit.teamId,
+    visit.checkinId,
+    visit.arrivedAt,
+    visit.releasedAt,
+    visit.dirty ? 1 : 0,
+    visit.updatedAt,
+  );
+}
+
+export async function loadTeamVisit(participantId: string): Promise<LocalTeamVisit | null> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<TeamVisitRow>(
+    'SELECT * FROM local_team_visits WHERE participant_id = ?',
+    participantId,
+  );
+  return row ? mapTeamVisitRow(row) : null;
+}
+
+export async function loadTeamVisits(eventId: string): Promise<LocalTeamVisit[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<TeamVisitRow>('SELECT * FROM local_team_visits WHERE event_id = ?', eventId);
+  return rows.map(mapTeamVisitRow);
+}
+
+export async function loadDirtyTeamVisits(eventId: string): Promise<LocalTeamVisit[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<TeamVisitRow>(
+    'SELECT * FROM local_team_visits WHERE event_id = ? AND dirty = 1',
+    eventId,
+  );
+  return rows.map(mapTeamVisitRow);
+}
+
+/** Markiert einen Eintrag nur dann als übertragen, wenn seither nichts Neues kam. */
+export async function markTeamVisitSynced(participantId: string, pushedUpdatedAt: string) {
+  const db = await getDb();
+  await db.runAsync(
+    'UPDATE local_team_visits SET dirty = 0 WHERE participant_id = ? AND updated_at = ?',
+    participantId,
+    pushedUpdatedAt,
+  );
 }
 
 // ---------------------------------------------------------------------------

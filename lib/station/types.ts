@@ -57,7 +57,6 @@ export type ToolConfig =
 
 export type PackageBlock = {
   id: string;
-  name: string;
   kind: 'play' | 'break' | 'final' | 'special';
   position: number;
   starts_at: string;
@@ -97,7 +96,19 @@ export type PackageMatch = {
   counts_for_ranking: boolean;
   current_result_version: number;
   scoring_rule_id: string | null;
+  actual_started_at: string | null;
+  actual_ended_at: string | null;
   participants: PackageMatchParticipant[];
+};
+
+/** Laufzettel einer Gruppe an einer Station (Ankunft und Weiterschickung). */
+export type PackageTeamVisit = {
+  participant_id: string;
+  match_id: string;
+  team_id: string;
+  arrived_at: string | null;
+  released_at: string | null;
+  updated_at: string;
 };
 
 export type PackageResultValue = {
@@ -125,6 +136,7 @@ export type StationPackage = {
   game_assignments: PackageGameAssignment[];
   matches: PackageMatch[];
   current_result_values: PackageResultValue[];
+  team_visits: PackageTeamVisit[];
 };
 
 /** Ein Tageseintrag für eine Person: Einsatz, Pause oder Block ohne Einsatz. */
@@ -147,6 +159,40 @@ export type LocalCheckin = {
 
 export type ResultPayloadValue = { participant_id: string; measured_value?: number; placement?: number };
 export type ResultPayload = { values: ResultPayloadValue[] };
+
+/**
+ * Lokaler Live-Zwischenstand eines Matches. Er wird fortlaufend (nicht
+ * revisionsbasiert) übertragen und ist die Grundlage dafür, dass das
+ * Backoffice ein Match live als "läuft" mit mitlaufendem Punktestand zeigt.
+ * Mehrere Geräte derselben Station teilen einen Stand (siehe
+ * docs/datenkonzept.md Abschnitt 11.6).
+ */
+export type LocalLiveState = {
+  matchId: string;
+  eventId: string;
+  checkinId: string;
+  values: ResultPayloadValue[];
+  started: boolean;
+  dirty: boolean;
+  updatedAt: string;
+};
+
+/**
+ * Lokaler Laufzettel-Eintrag einer Gruppe. Wie der Live-Zwischenstand wird er
+ * fortlaufend (nicht revisionsbasiert) übertragen: er dokumentiert den
+ * tatsächlichen Ablauf, nicht das Ergebnis (docs/datenkonzept.md 11.7).
+ */
+export type LocalTeamVisit = {
+  participantId: string;
+  eventId: string;
+  matchId: string;
+  teamId: string;
+  checkinId: string;
+  arrivedAt: string | null;
+  releasedAt: string | null;
+  dirty: boolean;
+  updatedAt: string;
+};
 
 export type LocalResultSubmission = {
   requestId: string;

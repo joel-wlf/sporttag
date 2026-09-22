@@ -60,6 +60,7 @@ export function ResultCorrectionSheet({
   const { match, game, participants } = row;
   const isMultiTeam = participants.length > 2;
   const isNumber = game?.measurement_type === 'number';
+  const isCorrection = match.current_result_version > 0;
   const packageMatch = {
     participants: participants.map((p) => ({ id: p.participantId, team_id: p.team?.id ?? '', slot: p.slot })),
   } as unknown as PackageMatch;
@@ -67,7 +68,9 @@ export function ResultCorrectionSheet({
   const canSubmit = isNumber ? true : isMultiTeam ? participants.every((p) => placements[p.participantId]?.trim()) : outcome !== null;
 
   const submit = async () => {
-    if (!reason.trim()) {
+    // Eine Korrektur eines bestehenden Ergebnisses braucht eine Begründung;
+    // eine erstmalige manuelle Eingabe nicht.
+    if (isCorrection && !reason.trim()) {
       setError('Bitte eine Begründung angeben.');
       return;
     }
@@ -108,8 +111,8 @@ export function ResultCorrectionSheet({
       isSubmitting={record.isPending}
       onClose={onClose}
       onSubmit={() => void submit()}
-      submitLabel="Korrektur speichern"
-      title="Ergebnis korrigieren"
+      submitLabel={isCorrection ? 'Korrektur speichern' : 'Ergebnis speichern'}
+      title={isCorrection ? 'Ergebnis korrigieren' : 'Ergebnis manuell eintragen'}
       visible={Boolean(row)}
     >
       <View className="gap-3">
@@ -142,7 +145,12 @@ export function ResultCorrectionSheet({
           </View>
         )}
       </View>
-      <Field label="Begründung" onChangeText={setReason} placeholder="Warum wird das Ergebnis korrigiert?" value={reason} />
+      <Field
+        label={isCorrection ? 'Begründung' : 'Begründung (optional)'}
+        onChangeText={setReason}
+        placeholder={isCorrection ? 'Warum wird das Ergebnis korrigiert?' : 'z. B. manuell nachgetragen'}
+        value={reason}
+      />
     </FormSheet>
   );
 }

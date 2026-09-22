@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import * as store from './store';
 import { getDevice } from './identity';
 import type { StationState } from './store';
+import type { LocalLiveState, LocalTeamVisit } from './types';
 
 /**
  * Sync-Engine: leert die Outbox in Erstellungsreihenfolge (Check-ins vor
@@ -39,8 +40,7 @@ async function syncOneCheckin(eventId: string, requestId: string, deviceId: stri
   await store.markOutboxReceived(requestId, 'accepted');
 }
 
-async function syncOneResult(eventId: string, requestId: string, deviceId: string, accessId: string) {
-  const submissions = await store.loadResultSubmissions(eventId);
+async function syncOneResult(eventId: string, requestId: string, deviceId: string, accessId: string) {  const submissions = await store.loadResultSubmissions(eventId);
   const submission = submissions.find((s) => s.requestId === requestId);
   if (!submission) return;
   await store.markOutboxSending(requestId);
@@ -63,6 +63,41 @@ async function syncOneResult(eventId: string, requestId: string, deviceId: strin
   const row = Array.isArray(data) ? data[0] : data;
   await store.setSubmissionServerStatus(requestId, row.status, row.result_version ?? null);
   await store.markOutboxReceived(requestId, row.status);
+}
+
+/** Überträgt einen Live-Zwischenstand; er ist nie Teil der nummerierten Ergebnisse. */
+async function syncOneLive(eventId: string, live: LocalLiveState, deviceId: string, accessId: string) {
+  const { error } = await supabase.rpc('sync_match_live', {
+    p_event_id: eventId,
+    p_match_id: live.matchId,
+    p_device_id: deviceId,
+    p_device_access_id: accessId,
+    p_checkin_id: live.checkinId,
+    p_values: live.values,
+    p_started: live.started,
+    p_updated_at: live.updatedAt,
+  });
+  if (error) throw error;
+  await store.markLiveStateSynced(live.matchId, live.updatedAt);
+}
+
+/**
+ * Überträgt einen Laufzettel-Eintrag (Ankunft/Weiterschickung einer Gruppe).
+ * Wie der Live-Stand ist er fortlaufend und nie Teil der Ergebnissicherung.
+ */
+async function syncOneVisit(eventId: string, visit: LocalTeamVisit, deviceId: string, accessId: string) {
+  const { error } = await supabase.rpc('sync_team_visit', {
+    p_event_id: eventId,
+    p_participant_id: visit.participantId,
+    p_device_id: deviceId,
+    p_device_access_id: accessId,
+    p_checkin_id: visit.checkinId,
+    p_arrived_at: visit.arrivedAt ?? undefined,
+    p_released_at: visit.releasedAt ?? undefined,
+    p_updated_at: visit.updatedAt,
+  });
+  if (error) throw error;
+  await store.markTeamVisitSynced(visit.participantId, visit.updatedAt);
 }
 
 /** Leert die Outbox eines Events. Gibt zurück, wie es lief, ohne zu werfen. */
@@ -88,6 +123,38 @@ export async function syncNow(eventId: string): Promise<SyncOutcome> {
       await store.markOutboxFailed(entry.requestId, message, new Date(Date.now() + backoffMs(entry.attemptCount)).toISOString());
       if (isAuthError) return 'unauthorized';
       return 'error';
+    }
+  }
+
+  // Live-Zwischenstände erst nach den Check-ins: der Server verlangt einen
+  // passenden Check-in. Ein Fehlschlag (z. B. Check-in noch nicht übertragen)
+  // lässt den Stand schmutzig; der nächste Sync versucht es erneut.
+  const dirtyLive = await store.loadDirtyLiveStates(eventId);
+  for (const live of dirtyLive) {
+    try {
+      await syncOneLive(eventId, live, device.id, state.accessId);
+    } catch (error) {
+      if (isNetworkError(error)) return 'offline';
+      const message = error instanceof Error ? error.message : String(error);
+      if (/not authorized|authentication required|revoked/i.test(message)) return 'unauthorized';
+      // Live-Stände sind unkritisch: einen dauerhaft abgelehnten Stand (z. B.
+      // Check-in passt nicht mehr) nicht endlos erneut versuchen. Die nächste
+      // Eingabe setzt den Stand wieder schmutzig.
+      await store.markLiveStateSynced(live.matchId, live.updatedAt);
+    }
+  }
+
+  // Laufzettel der Gruppen, aus denselben Gründen und mit derselben Nachsicht
+  // wie die Live-Stände: sie dokumentieren den Ablauf, nicht das Ergebnis.
+  const dirtyVisits = await store.loadDirtyTeamVisits(eventId);
+  for (const visit of dirtyVisits) {
+    try {
+      await syncOneVisit(eventId, visit, device.id, state.accessId);
+    } catch (error) {
+      if (isNetworkError(error)) return 'offline';
+      const message = error instanceof Error ? error.message : String(error);
+      if (/not authorized|authentication required|revoked/i.test(message)) return 'unauthorized';
+      await store.markTeamVisitSynced(visit.participantId, visit.updatedAt);
     }
   }
 

@@ -43,7 +43,6 @@ function StammdatenCard({ event }: { event: EventRow }) {
   const [ntfyTopic, setNtfyTopic] = useState(event.ntfy_topic ?? '');
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const locked = event.status !== 'draft';
 
   const handleSave = async () => {
     setError(null);
@@ -77,14 +76,10 @@ function StammdatenCard({ event }: { event: EventRow }) {
         <CardTitle>Stammdaten</CardTitle>
         <CardDescription>Name, Motto, Datum, Zeitzone und optionale ntfy-Benachrichtigung.</CardDescription>
       </CardHeader>
-      <Field editable={!locked} label="Name" onChangeText={setName} value={name} />
-      <Field editable={!locked} label="Motto" onChangeText={setMotto} value={motto} />
-      {locked ? (
-        <Field editable={false} label="Datum" value={eventDate ? toDateString(eventDate) : ''} />
-      ) : (
-        <DateTimeField label="Datum" mode="date" onChange={setEventDate} value={eventDate} />
-      )}
-      <Field editable={!locked} label="Zeitzone" onChangeText={setTimezone} value={timezone} />
+      <Field label="Name" onChangeText={setName} value={name} />
+      <Field label="Motto" onChangeText={setMotto} value={motto} />
+      <DateTimeField label="Datum" mode="date" onChange={setEventDate} value={eventDate} />
+      <Field label="Zeitzone" onChangeText={setTimezone} value={timezone} />
       <Field
         autoCapitalize="none"
         hint="Alternative Benachrichtigung; beide Felder zusammen oder leer lassen"
@@ -94,12 +89,10 @@ function StammdatenCard({ event }: { event: EventRow }) {
         value={ntfyBaseUrl}
       />
       <Field autoCapitalize="none" label="ntfy-Thema (optional)" onChangeText={setNtfyTopic} value={ntfyTopic} />
-      {locked ? <Badge tone="neutral">Veröffentlicht – Stammdaten sind gesperrt</Badge> : null}
       {error ? <Badge tone="danger">{error}</Badge> : null}
       {saved ? <Badge tone="success">Gespeichert</Badge> : null}
       <Button
         className="self-start"
-        isDisabled={locked}
         isLoading={updateEvent.isPending}
         label="Speichern"
         onPress={handleSave}

@@ -11,12 +11,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    supabase.auth.getSession().then(({ data: { session: restored } }) => {
-      if (active) {
-        setSession(restored);
-        setIsLoading(false);
-      }
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data: { session: restored } }) => {
+        if (active) {
+          setSession(restored);
+          setIsLoading(false);
+        }
+      })
+      // Ohne diesen Zweig bliebe der Ladezustand bei einem Fehler für immer
+      // stehen; die App darf nie in einem Endlos-Spinner hängen bleiben.
+      .catch(() => {
+        if (active) {
+          setSession(null);
+          setIsLoading(false);
+        }
+      });
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
       setIsLoading(false);

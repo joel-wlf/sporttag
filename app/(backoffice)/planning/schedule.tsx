@@ -91,7 +91,6 @@ function ScheduleContent() {
   const setBlockGame = useSetBlockGame(id);
   const setCells = useSetCells(id);
 
-  const locked = event?.status !== 'draft';
   const timeZone = event?.timezone ?? 'Europe/Berlin';
 
   const [error, setError] = useState<string | null>(null);
@@ -192,18 +191,16 @@ function ScheduleContent() {
     <Screen>
       <Header
         actions={
-          locked ? undefined : (
-            <>
-              <Button label="Runde" leftIcon="plus" onPress={() => appendRow('play')} variant="outline" />
-              <Button isDisabled={!hasPlayRounds} label="Pause" leftIcon="pause" onPress={() => appendRow('break')} variant="outline" />
-              <Button
-                isDisabled={emptyCells === 0 || teams.length < 2}
-                label="Auto-Einteilung"
-                leftIcon="refresh"
-                onPress={() => setProposal(autoFill(matrix, teams, games))}
-              />
-            </>
-          )
+          <>
+            <Button label="Runde" leftIcon="plus" onPress={() => appendRow('play')} variant="outline" />
+            <Button isDisabled={!hasPlayRounds} label="Pause" leftIcon="pause" onPress={() => appendRow('break')} variant="outline" />
+            <Button
+              isDisabled={emptyCells === 0 || teams.length < 2}
+              label="Auto-Einteilung"
+              leftIcon="refresh"
+              onPress={() => setProposal(autoFill(matrix, teams, games))}
+            />
+          </>
         }
         description="Zeilen sind Runden, Spalten sind Stationen. Pausen trennen die Blöcke, in denen jede Station ihr Spiel hat."
         eyebrow="PLANUNG"
@@ -220,24 +217,20 @@ function ScheduleContent() {
         <Card>
           <View className="flex-row flex-wrap gap-3">
             <View className="min-w-[160px] flex-1">
-              {locked ? (
-                <Field editable={false} label="Beginn" value={event.schedule_start_time.slice(0, 5)} />
-              ) : (
-                <DateTimeField
-                  label="Beginn"
-                  mode="time"
-                  onChange={(d) =>
-                    saveSettings({
-                      schedule_start_time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
-                    })
-                  }
-                  value={timeToDate(event.schedule_start_time)}
-                />
-              )}
+              <DateTimeField
+                label="Beginn"
+                mode="time"
+                onChange={(d) =>
+                  saveSettings({
+                    schedule_start_time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+                  })
+                }
+                value={timeToDate(event.schedule_start_time)}
+              />
             </View>
-            <MinutesField disabled={locked} key={`r-${event.round_minutes}`} label="Rundendauer (min)" onCommit={(v) => saveSettings({ round_minutes: v })} value={event.round_minutes} />
-            <MinutesField disabled={locked} key={`c-${event.changeover_minutes}`} label="Wechselzeit (min)" onCommit={(v) => saveSettings({ changeover_minutes: v })} value={event.changeover_minutes} />
-            <MinutesField disabled={locked} key={`b-${event.break_minutes}`} label="Pausendauer (min)" onCommit={(v) => saveSettings({ break_minutes: v })} value={event.break_minutes} />
+            <MinutesField disabled={false} key={`r-${event.round_minutes}`} label="Rundendauer (min)" onCommit={(v) => saveSettings({ round_minutes: v })} value={event.round_minutes} />
+            <MinutesField disabled={false} key={`c-${event.changeover_minutes}`} label="Wechselzeit (min)" onCommit={(v) => saveSettings({ changeover_minutes: v })} value={event.changeover_minutes} />
+            <MinutesField disabled={false} key={`b-${event.break_minutes}`} label="Pausendauer (min)" onCommit={(v) => saveSettings({ break_minutes: v })} value={event.break_minutes} />
           </View>
         </Card>
       ) : null}
@@ -245,7 +238,7 @@ function ScheduleContent() {
       {!hasPlayRounds && matrix.rows.length === 0 ? (
         <Card>
           <EmptyState
-            action={locked ? undefined : <Button label="Erste Runde hinzufügen" leftIcon="plus" onPress={() => appendRow('play')} />}
+            action={<Button label="Erste Runde hinzufügen" leftIcon="plus" onPress={() => appendRow('play')} />}
             description={
               gameRows.length === 0
                 ? 'Lege zuerst unter „Spiele & Wertung“ die Spiele an. Danach fügst du hier Runden hinzu und trägst die Teams ein.'
@@ -265,7 +258,6 @@ function ScheduleContent() {
           <ScheduleMatrix
             cellFlags={cellFlags}
             games={games}
-            locked={locked}
             matrix={matrix}
             onAddStation={() => router.push('/planning/venue' as never)}
             onPressCell={(roundId, stationId) => {

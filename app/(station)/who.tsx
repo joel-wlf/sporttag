@@ -5,8 +5,8 @@ import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Icon } from '@/components/ui/Icon';
 import { useTokens } from '@/components/ui/theme';
+import { confirmAsync } from '@/lib/confirm';
 import { haptic } from '@/lib/haptics';
-import { dayPlan } from '@/lib/station/package';
 import { useStationSession } from '@/providers/StationSessionProvider';
 
 function initialsOf(name: string) {
@@ -20,7 +20,7 @@ function initialsOf(name: string) {
 export default function StationWhoScreen() {
   const router = useRouter();
   const tokens = useTokens();
-  const { pkg, selectStaff, leave } = useStationSession();
+  const { pkg, selectStaff, leave, resetDevice } = useStationSession();
 
   const select = (id: string) => {
     haptic('success');
@@ -28,9 +28,24 @@ export default function StationWhoScreen() {
     router.push('/assignment');
   };
 
-  const leaveEvent = () => {
+  const leaveEvent = async () => {
     haptic('light');
-    void leave();
+    await leave();
+    router.replace('/join');
+  };
+
+  const reset = async () => {
+    if (
+      !(await confirmAsync(
+        'Alle lokalen Daten dieses Geräts werden gelöscht, auch noch nicht übertragene Ergebnisse. Danach ist ein neuer Veranstaltungscode nötig.',
+        'Gerät zurücksetzen?',
+        'Zurücksetzen',
+      ))
+    ) {
+      return;
+    }
+    haptic('warning');
+    await resetDevice();
     router.replace('/join');
   };
 
@@ -42,7 +57,7 @@ export default function StationWhoScreen() {
         accessibilityLabel="Veranstaltung verlassen"
         accessibilityRole="button"
         className="h-10 w-10 items-center justify-center self-start rounded-full border border-line bg-surface active:opacity-70"
-        onPress={leaveEvent}
+        onPress={() => void leaveEvent()}
       >
         <Icon color={tokens.text} name="arrow-left" size={17} />
       </Pressable>
@@ -56,11 +71,6 @@ export default function StationWhoScreen() {
       ) : (
         <View className="flex-1 gap-2">
           {staff.map((person) => {
-            const entries = pkg ? dayPlan(pkg, person.id) : [];
-            const note = entries
-              .filter((e) => e.kind === 'assignment')
-              .map((e) => `${e.block.name} · ${e.station.name}`)
-              .join(' — ');
             return (
               <Pressable
                 accessibilityRole="button"
@@ -70,11 +80,8 @@ export default function StationWhoScreen() {
                 onPressIn={() => haptic('heavy')}
               >
                 <Avatar initials={initialsOf(person.display_name)} size={44} />
-                <View className="flex-1 gap-0.5">
+                <View className="flex-1">
                   <Text className="text-base font-bold text-ink">{person.display_name}</Text>
-                  <Text className="text-xs text-subtle" numberOfLines={1}>
-                    {note || 'Kein Einsatz geplant'}
-                  </Text>
                 </View>
                 <Icon name="chevron-right" color={tokens.subtle} size={18} />
               </Pressable>
@@ -83,13 +90,22 @@ export default function StationWhoScreen() {
         </View>
       )}
 
-      <Pressable
-        accessibilityRole="button"
-        className="items-center py-3 active:opacity-60"
-        onPress={leaveEvent}
-      >
-        <Text className="text-sm font-semibold text-subtle">Veranstaltung verlassen</Text>
-      </Pressable>
+      <View className="items-center gap-1 pb-2">
+        <Pressable
+          accessibilityRole="button"
+          className="items-center py-2 active:opacity-60"
+          onPress={() => void leaveEvent()}
+        >
+          <Text className="text-sm font-semibold text-subtle">Veranstaltung verlassen</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          className="items-center py-1 active:opacity-60"
+          onPress={() => void reset()}
+        >
+          <Text className="text-xs font-semibold text-danger">Gerät zurücksetzen</Text>
+        </Pressable>
+      </View>
     </Screen>
   );
 }

@@ -1,4 +1,4 @@
-import type { ActiveCheckinRow, CurrentResultValueRow, OpenSubmissionRow } from '@/lib/api/live';
+import type { ActiveCheckinRow, CurrentResultValueRow, MatchLiveStateRow, OpenSubmissionRow } from '@/lib/api/live';
 import type { DeviceSyncRow } from '@/lib/api/devices';
 import type { BlockRow, MatchParticipantRow, MatchRow, RoundRow, StationSetupRow } from '@/lib/api/schedule';
 import type { EventGameRow } from '@/lib/api/games';
@@ -102,6 +102,7 @@ export function buildStationLive({
   devices,
   openSubmissions,
   currentResultValues,
+  liveStates,
   now,
 }: {
   stations: StationRow[];
@@ -116,6 +117,7 @@ export function buildStationLive({
   devices: DeviceSyncRow[];
   openSubmissions: OpenSubmissionRow[];
   currentResultValues: CurrentResultValueRow[];
+  liveStates: MatchLiveStateRow[];
   now: Date;
 }): StationLive[] {
   const block = round ? (blocks.find((b) => b.id === round.block_id) ?? null) : null;
@@ -137,9 +139,20 @@ export function buildStationLive({
     const checkins = setup ? activeCheckins.filter((c) => c.station_setup_id === setup.id) : [];
     const device = checkins.length > 0 ? (devices.find((d) => d.access_id === checkins[0].device_access_id) ?? null) : null;
     const submissions = match ? openSubmissions.filter((s) => s.match_id === match.id) : [];
-    const scoreLabel = match ? scoreLabelFor(match, participants, currentResultValues) : null;
+    const liveState = match ? (liveStates.find((s) => s.match_id === match.id) ?? null) : null;
+    const liveValues = ((liveState?.values as LiveValue[] | null) ?? []).filter(Boolean);
+    const scoreLabel = match ? scoreLabelFor(match, participants, liveValues, currentResultValues) : null;
 
-    const status = deriveStatus({ setup, match, checkins, device, submissions, round, now });
+    const status = deriveStatus({
+      setup,
+      match,
+      checkins,
+      device,
+      submissions,
+      round,
+      liveStarted: Boolean(liveState?.started_at),
+      now,
+    });
 
     return {
       station,
@@ -162,21 +175,30 @@ function formatScoreValue(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-/** Kompakter Live-Punktestand je Match, in Team-/Slot-Reihenfolge, z. B. „12:8“ oder „1./2.“. */
+type LiveValue = { participant_id: string; measured_value?: number | null; placement?: number | null };
+
+/**
+ * Kompakter Live-Punktestand je Match, in Team-/Slot-Reihenfolge, z. B. „12:8“
+ * oder „1./2.“. Bevorzugt den fortlaufenden Live-Stand der Geräte, solange das
+ * Match noch nicht abgeschlossen ist; danach gilt das bestätigte Ergebnis.
+ */
 function scoreLabelFor(
   match: MatchRow,
   participants: MatchParticipantRow[],
+  liveValues: LiveValue[],
   currentResultValues: CurrentResultValueRow[],
 ): string | null {
   if (participants.length === 0) return null;
-  const rows = currentResultValues.filter((v) => v.match_id === match.id);
+  const confirmed = currentResultValues.filter((v) => v.match_id === match.id);
+  const rows: LiveValue[] =
+    match.status !== 'completed' && liveValues.length > 0 ? liveValues : confirmed;
   if (rows.length === 0) return null;
 
   const parts = participants.map((p) => {
-    const row = rows.find((v) => v.team_id === p.team_id);
+    const row = rows.find((v) => v.participant_id === p.id);
     if (!row) return '–';
-    if (row.measured_value !== null) return formatScoreValue(row.measured_value);
-    if (row.placement !== null) return `${row.placement}.`;
+    if (row.measured_value != null) return formatScoreValue(row.measured_value);
+    if (row.placement != null) return `${row.placement}.`;
     return '–';
   });
   if (parts.every((p) => p === '–')) return null;
@@ -190,6 +212,7 @@ function deriveStatus({
   device,
   submissions,
   round,
+  liveStarted,
   now,
 }: {
   setup: StationSetupRow | null;
@@ -198,12 +221,14 @@ function deriveStatus({
   device: DeviceSyncRow | null;
   submissions: OpenSubmissionRow[];
   round: RoundRow | null;
+  liveStarted: boolean;
   now: Date;
 }): LiveStatus {
   if (!setup || !round || !match) return 'idle';
   if (submissions.length > 0) return 'conflict';
   if (match?.status === 'cancelled') return 'cancelled';
   if (match?.status === 'completed' || (match && match.current_result_version > 0)) return 'done';
+  if (liveStarted) return 'running';
   if (match?.status === 'in_progress') {
     if (device?.last_seen_at && now.getTime() - new Date(device.last_seen_at).getTime() > STALE_DEVICE_MS) return 'stale';
     return 'running';

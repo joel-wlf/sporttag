@@ -8,7 +8,7 @@ import { useStationSession } from '@/providers/StationSessionProvider';
 
 export function MissingPackage({ title = 'Keine Daten' }: { title?: string }) {
   const router = useRouter();
-  const { eventId, retryDownload } = useStationSession();
+  const { eventId, retryDownload, leave } = useStationSession();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,12 +20,17 @@ export function MissingPackage({ title = 'Keine Daten' }: { title?: string }) {
     if (!result.ok) setError(friendlyErrorMessage(new Error(result.error)));
   };
 
+  const rejoin = async () => {
+    await leave();
+    router.replace('/join');
+  };
+
   return (
     <EmptyState
       action={
         <View className="items-center gap-3">
           {eventId ? <Button isLoading={loading} label="Paket erneut laden" onPress={() => void retry()} /> : null}
-          <Button label="Neu beitreten" onPress={() => router.replace('/join')} variant="outline" />
+          <Button label="Neu beitreten" onPress={() => void rejoin()} variant="outline" />
           {error ? <Text className="text-center text-sm font-semibold text-danger">{error}</Text> : null}
         </View>
       }

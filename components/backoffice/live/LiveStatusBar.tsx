@@ -63,11 +63,17 @@ export function LiveStatusBar({
           <Text className="text-[16px] font-extrabold text-ink" numberOfLines={1}>
             {round ? `Runde ${roundNumber} von ${roundCount}` : 'Noch keine Runden'}
           </Text>
+          {/* Der Fortschritt steht vorn: eine Runde endet, wenn das letzte
+              Spiel fertig ist, nicht wenn die Uhr es sagt. Die geplante Zeit
+              bleibt als Orientierung stehen (docs/datenkonzept.md 11.7). */}
           <Text className="text-center text-[12px] font-semibold text-subtle" numberOfLines={2}>
-            {round
-              ? `${formatTime(round.starts_at)}–${formatTime(round.ends_at)} · ${roundProgress(round, now)}`
-              : 'Im Zeitplan sind noch keine Runden angelegt'}
+            {round ? roundProgress(round, now) : 'Im Zeitplan sind noch keine Runden angelegt'}
           </Text>
+          {round ? (
+            <Text className="text-center text-[11px] text-subtle opacity-70" numberOfLines={1}>
+              geplant ca. {formatTime(round.starts_at)}–{formatTime(round.ends_at)}
+            </Text>
+          ) : null}
         </View>
         <Button accessibilityLabel="Nächste Runde" isDisabled={!hasNext} leftIcon="chevron-right" onPress={onNext} size="sm" variant="outline" />
       </View>

@@ -9,7 +9,7 @@ import { Icon } from '@/components/ui/Icon';
 import { useTokens } from '@/components/ui/theme';
 import { haptic } from '@/lib/haptics';
 import { useMatchLiveActivity } from '@/lib/live/useMatchLiveActivity';
-import { formatTime, gameForSetup, matchesForSetup, stationForSetup, teamName } from '@/lib/station/package';
+import { blockLabel, formatTime, gameForSetup, matchesForSetup, stationForSetup, teamName } from '@/lib/station/package';
 import { useStationSession } from '@/providers/StationSessionProvider';
 
 export default function CockpitMatchesScreen() {
@@ -26,7 +26,8 @@ export default function CockpitMatchesScreen() {
   const setupId = params.setupId ?? activeCheckin?.stationSetupId;
   const fallbackSetup = setupId ? pkg?.station_setups.find((s) => s.id === setupId) : undefined;
   const station = params.station ?? (fallbackSetup && pkg ? stationForSetup(pkg, fallbackSetup)?.name : undefined);
-  const block = params.block ?? pkg?.blocks.find((b) => b.id === fallbackSetup?.block_id)?.name;
+  const fallbackBlock = pkg?.blocks.find((b) => b.id === fallbackSetup?.block_id);
+  const block = params.block ?? (fallbackBlock ? blockLabel(fallbackBlock) : undefined);
   const game = params.game ?? (fallbackSetup && pkg ? gameForSetup(pkg, fallbackSetup)?.name : undefined);
 
   if (!pkg) {
@@ -114,7 +115,7 @@ export default function CockpitMatchesScreen() {
               onPressIn={() => haptic('heavy')}
             >
               <Text className="text-2xs font-black tracking-[0.6px] text-on-primary/80">
-                LÄUFT · {running.round ? formatTime(running.round.starts_at, timezone) : ''}
+                LÄUFT{running.round?.label ? ` · ${running.round.label}` : ''}
               </Text>
               <Text className="text-lg font-extrabold text-on-primary">
                 {running.match.participants.map((p) => teamName(pkg, p.team_id)).join(' – ')}
@@ -141,9 +142,14 @@ export default function CockpitMatchesScreen() {
                     }
                     onPressIn={() => haptic('heavy')}
                   >
-                    <View className={['w-11', match.status === 'completed' ? 'opacity-50' : ''].join(' ')}>
-                      <Text className="text-sm font-extrabold text-ink">{round ? formatTime(round.starts_at, timezone) : '–'}</Text>
-                      <Text className="text-2xs font-bold text-subtle">{round?.label}</Text>
+                    {/* Die Runde ordnet, nicht die Uhr: sie endet, wenn das
+                        letzte Spiel fertig ist. Die geplante Zeit steht klein
+                        darunter (docs/datenkonzept.md 11.7). */}
+                    <View className={['w-12', match.status === 'completed' ? 'opacity-50' : ''].join(' ')}>
+                      <Text className="text-sm font-extrabold text-ink" numberOfLines={1}>
+                        {round?.label ?? '–'}
+                      </Text>
+                      <Text className="text-2xs text-subtle">{round ? formatTime(round.starts_at, timezone) : ''}</Text>
                     </View>
                     <Text
                       className={[

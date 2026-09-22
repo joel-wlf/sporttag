@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Screen } from '@/components/layout/Screen';
 import { ActionBar } from '@/components/station/ActionBar';
 import { StatusBadge, type SyncStatus } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { friendlyErrorMessage } from '@/lib/api/errors';
+import { confirmAsync } from '@/lib/confirm';
 import { haptic } from '@/lib/haptics';
 import { teamName } from '@/lib/station/package';
 import { useStationSession } from '@/providers/StationSessionProvider';
@@ -25,9 +27,31 @@ const statusFor = (state: string, receiptStatus: string | null): SyncStatus => {
 };
 
 export default function CockpitSyncScreen() {
-  const { pkg, eventId, syncCounts, syncOutcome, lastSyncedAt, syncNow, submitManifest } = useStationSession();
+  const router = useRouter();
+  const { pkg, eventId, syncCounts, syncOutcome, lastSyncedAt, syncNow, submitManifest, leave, resetDevice } = useStationSession();
   const [manifestState, setManifestState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
   const [manifestMessage, setManifestMessage] = useState<string | null>(null);
+
+  const rejoin = async () => {
+    haptic('light');
+    await leave();
+    router.replace('/join');
+  };
+
+  const reset = async () => {
+    if (
+      !(await confirmAsync(
+        'Alle lokalen Daten dieses Geräts werden gelöscht, auch noch nicht übertragene Ergebnisse.',
+        'Gerät zurücksetzen?',
+        'Zurücksetzen',
+      ))
+    ) {
+      return;
+    }
+    haptic('warning');
+    await resetDevice();
+    router.replace('/join');
+  };
 
   const runManifest = async () => {
     haptic('medium');
@@ -79,9 +103,12 @@ export default function CockpitSyncScreen() {
       {syncOutcome === 'offline' ? (
         <Text className="text-sm font-semibold text-warning">Kein Netz — Ergebnisse bleiben gesichert.</Text>
       ) : syncOutcome === 'unauthorized' ? (
-        <Text className="text-sm font-semibold text-danger">
-          Gerätezugang ungültig. Bitte erneut über den Veranstaltungscode beitreten; nichts wurde gelöscht.
-        </Text>
+        <View className="gap-2 rounded-card border border-danger/40 bg-danger-soft p-3">
+          <Text className="text-sm font-semibold text-danger">
+            Gerätezugang ungültig. Bitte erneut über den Veranstaltungscode beitreten; nichts wurde gelöscht.
+          </Text>
+          <Button label="Neu beitreten" onPress={() => void rejoin()} size="sm" variant="outline" />
+        </View>
       ) : null}
 
       {pendingMatches.length > 0 ? (
@@ -123,6 +150,15 @@ export default function CockpitSyncScreen() {
         {manifestMessage ? (
           <Text className={manifestState === 'error' ? 'text-xs text-danger' : 'text-xs text-subtle'}>{manifestMessage}</Text>
         ) : null}
+      </View>
+
+      <View className="gap-2 rounded-card border border-line bg-surface p-4">
+        <Text className="text-sm font-extrabold text-ink">Gerät zurücksetzen</Text>
+        <Text className="text-xs leading-5 text-subtle">
+          Löscht alle lokalen Daten dieses Geräts, auch noch nicht übertragene Ergebnisse, und führt zurück zum
+          Veranstaltungscode. Nur benutzen, wenn das Gerät wirklich zurückgesetzt werden soll.
+        </Text>
+        <Button label="Zurücksetzen" onPress={() => void reset()} variant="outline" />
       </View>
     </Screen>
   );

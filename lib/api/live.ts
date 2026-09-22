@@ -39,7 +39,6 @@ export type OpenSubmissionRow = {
 };
 
 const openSubmissionsKey = (eventId: string) => ['events', eventId, 'open-submissions'] as const;
-
 export function useOpenSubmissions(eventId: string | null) {
   return useQuery({
     queryKey: eventId ? openSubmissionsKey(eventId) : ['events', 'none', 'open-submissions'],
@@ -51,6 +50,30 @@ export function useOpenSubmissions(eventId: string | null) {
         .in('status', ['conflict', 'needs_review']);
       if (error) throw error;
       return (data ?? []) as OpenSubmissionRow[];
+    },
+    enabled: Boolean(eventId),
+  });
+}
+
+/**
+ * Geteilte Live-Zwischenstände je Match. Sie werden fortlaufend von den
+ * Stationsgeräten gemeldet und speisen den mitlaufenden Punktestand sowie den
+ * Status "läuft" im Backoffice (docs/datenkonzept.md Abschnitt 11.6).
+ */
+export type MatchLiveStateRow = Tables<'match_live_states'>;
+
+const matchLiveStatesKey = (eventId: string) => ['events', eventId, 'match-live-states'] as const;
+
+export function useMatchLiveStates(eventId: string | null) {
+  return useQuery({
+    queryKey: eventId ? matchLiveStatesKey(eventId) : ['events', 'none', 'match-live-states'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('match_live_states')
+        .select('*')
+        .eq('event_id', eventId as string);
+      if (error) throw error;
+      return (data ?? []) as MatchLiveStateRow[];
     },
     enabled: Boolean(eventId),
   });
@@ -77,6 +100,8 @@ export function useLiveRealtime(eventId: string | null) {
       void queryClient.invalidateQueries({ queryKey: activeCheckinsKey(eventId) });
       void queryClient.invalidateQueries({ queryKey: openSubmissionsKey(eventId) });
       void queryClient.invalidateQueries({ queryKey: currentResultValuesKey(eventId) });
+      void queryClient.invalidateQueries({ queryKey: matchLiveStatesKey(eventId) });
+      void queryClient.invalidateQueries({ queryKey: teamVisitsKey(eventId) });
       void queryClient.invalidateQueries({ queryKey: ['events', eventId, 'device-sync-overview'] });
     };
     const channel = supabase
@@ -86,6 +111,8 @@ export function useLiveRealtime(eventId: string | null) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'result_submissions', filter: `event_id=eq.${eventId}` }, invalidate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'station_checkins', filter: `event_id=eq.${eventId}` }, invalidate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'event_device_states', filter: `event_id=eq.${eventId}` }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'match_live_states', filter: `event_id=eq.${eventId}` }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_station_visits', filter: `event_id=eq.${eventId}` }, invalidate)
       .subscribe((status) => {
         if (cancelled) return;
         setConnected(status === 'SUBSCRIBED');
@@ -133,6 +160,30 @@ export function useCurrentResultValues(eventId: string | null) {
         .eq('event_id', eventId as string);
       if (error) throw error;
       return (data ?? []) as CurrentResultValueRow[];
+    },
+    enabled: Boolean(eventId),
+  });
+}
+
+/**
+ * Laufzettel der Gruppen: wann eine Gruppe an einer Station eingetroffen ist
+ * und wann sie weitergeschickt wurde. Grundlage der Zeitleiste im Live-Betrieb
+ * (docs/datenkonzept.md Abschnitt 11.7).
+ */
+export type TeamVisitRow = Tables<'team_station_visits'>;
+
+const teamVisitsKey = (eventId: string) => ['events', eventId, 'team-visits'] as const;
+
+export function useTeamVisits(eventId: string | null) {
+  return useQuery({
+    queryKey: eventId ? teamVisitsKey(eventId) : ['events', 'none', 'team-visits'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('team_station_visits')
+        .select('*')
+        .eq('event_id', eventId as string);
+      if (error) throw error;
+      return (data ?? []) as TeamVisitRow[];
     },
     enabled: Boolean(eventId),
   });

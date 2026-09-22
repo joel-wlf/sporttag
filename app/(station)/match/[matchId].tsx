@@ -1,19 +1,21 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { Screen } from '@/components/layout/Screen';
 import { ActionBar } from '@/components/station/ActionBar';
+import { ArrivalStrip, type ArrivalRow } from '@/components/station/ArrivalStrip';
 import { ContextBar } from '@/components/station/ContextBar';
 import { ToolStrip } from '@/components/station/Tools';
 import { StatusBadge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useTokens } from '@/components/ui/theme';
 import { friendlyErrorMessage } from '@/lib/api/errors';
 import { haptic } from '@/lib/haptics';
 import { teamName } from '@/lib/station/package';
 import { buildNumberPayload, buildOutcomePayload, buildPlacementPayload } from '@/lib/station/scoring';
-import type { PackageGame, PackageMatch } from '@/lib/station/types';
+import type { PackageGame, PackageMatch, ResultPayloadValue } from '@/lib/station/types';
 import { useStationSession } from '@/providers/StationSessionProvider';
 
 type Participant = { id: string; name: string };
@@ -272,7 +274,8 @@ export default function MatchResultScreen() {
     station?: string;
     block?: string;
   }>();
-  const { pkg, activeCheckin, saveResult, syncCounts } = useStationSession();
+  const { pkg, activeCheckin, saveResult, setLiveValues, setTeamVisit, syncCounts, liveStates, teamVisits } =
+    useStationSession();
 
   const match: PackageMatch | undefined = pkg?.matches.find((m) => m.id === matchId);
   const setup = match ? pkg?.station_setups.find((s) => s.id === match.station_setup_id) : undefined;
@@ -288,6 +291,7 @@ export default function MatchResultScreen() {
     ? pkg?.current_result_values.filter((v) => v.match_id === match.id && v.version === match.current_result_version)
     : [];
   const isCorrection = Boolean(match && match.current_result_version > 0);
+  const isMultiTeam = teams.length > 2;
 
   const [values, setValues] = useState<Record<string, number>>({});
   const [outcome, setOutcome] = useState<'home' | 'draw' | 'away' | null>(null);
@@ -298,34 +302,112 @@ export default function MatchResultScreen() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Übernimmt den geteilten Live-Stand (auch von anderen Geräten derselben
+  // Station), sobald er sich ändert. So sehen mehrere Geräte denselben
+  // Zwischenstand, ohne dass ein Konflikt entsteht. Das synchrone Setzen in
+  // einem Effekt ist hier gewollt: externer Zustand wird in bearbeitbare
+  // Felder übernommen.
+  const appliedLiveRef = useRef<string | null>(null);
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!match || !game) return;
+    const live = liveStates[match.id];
+    if (!live || live.values.length === 0 || appliedLiveRef.current === live.updatedAt) return;
+    appliedLiveRef.current = live.updatedAt;
+    if (isMultiTeam) {
+      const next: Record<string, number> = {};
+      for (const v of live.values) if (v.placement != null) next[v.participant_id] = v.placement;
+      setPlacements(next);
+    } else if (game.measurement_type === 'number') {
+      const next: Record<string, number> = {};
+      for (const v of live.values) if (v.measured_value != null) next[v.participant_id] = v.measured_value;
+      setValues(next);
+    } else {
+      const home = live.values.find((v) => v.participant_id === match.participants[0]?.id);
+      const away = live.values.find((v) => v.participant_id === match.participants[1]?.id);
+      if (home?.placement === 1 && away?.placement === 1) setOutcome('draw');
+      else if (home?.placement === 1) setOutcome('home');
+      else if (away?.placement === 1) setOutcome('away');
+    }
+  }, [liveStates, match, game, isMultiTeam]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!pkg || !match || !game) {
     return (
       <Screen density="compact">
         <ContextBar onBack={() => router.back()} title="Match nicht gefunden" />
+        <EmptyState
+          action={<Button label="Zum Tagesplan" onPress={() => router.replace('/assignment')} />}
+          description="Dieses Match ist im Offline-Paket nicht (mehr) vorhanden. Zurück zum Tagesplan oder die Person wechseln."
+          icon="results"
+          title="Match nicht gefunden"
+        />
       </Screen>
     );
   }
 
-  const isMultiTeam = teams.length > 2;
+  const plannedStart = round ? new Date(round.starts_at).getTime() : null;
+  const arrivalRows: ArrivalRow[] = match.participants.map((participant) => {
+    const visit = teamVisits[participant.id];
+    const arrivedAt = visit?.arrivedAt ?? null;
+    return {
+      participantId: participant.id,
+      teamName: teamName(pkg, participant.team_id),
+      arrivedAt,
+      releasedAt: visit?.releasedAt ?? null,
+      delayMs: arrivedAt && plannedStart !== null ? new Date(arrivedAt).getTime() - plannedStart : null,
+    };
+  });
+
+  const reportLive = (payload: ResultPayloadValue[]) => {
+    void setLiveValues(match.id, payload, { started: true });
+  };
+
+  const changeValue = (participantId: string, next: number) => {
+    const nextValues = { ...values, [participantId]: next };
+    setValues(nextValues);
+    reportLive(buildNumberPayload(match, game, nextValues).values);
+  };
+
+  const changeOutcome = (next: 'home' | 'draw' | 'away') => {
+    setOutcome(next);
+    reportLive(buildOutcomePayload(match, next).values);
+  };
+
+  const computePlacements = (prev: Record<string, number>, participantId: string) => {
+    if (mode === 'winner') {
+      return prev[participantId] === 1 ? {} : { [participantId]: 1 };
+    }
+    const current = prev[participantId];
+    const next = { ...prev };
+    if (current) {
+      delete next[participantId];
+    } else {
+      const used = new Set(Object.values(next));
+      const rank = [1, 2, 3].find((r) => !used.has(r));
+      if (!rank) return prev;
+      next[participantId] = rank;
+    }
+    return next;
+  };
 
   const togglePlacement = (participantId: string) => {
-    setPlacements((prev) => {
-      if (mode === 'winner') {
-        return prev[participantId] === 1 ? {} : { [participantId]: 1 };
-      }
-      const current = prev[participantId];
-      const next = { ...prev };
-      if (current) {
-        delete next[participantId];
-      } else {
-        const used = new Set(Object.values(next));
-        const rank = [1, 2, 3].find((r) => !used.has(r));
-        if (!rank) return prev;
-        next[participantId] = rank;
-      }
-      return next;
-    });
+    const next = computePlacements(placements, participantId);
+    setPlacements(next);
+    // Nur tatsächlich gesetzte Platzierungen melden; fehlende Teams bleiben im
+    // Backoffice ohne Wert, statt den Anzeige-Fallback als Ergebnis zu senden.
+    reportLive(
+      match.participants
+        .filter((p) => next[p.id] != null)
+        .map((p) => ({ participant_id: p.id, placement: next[p.id] })),
+    );
   };
 
   const canConfirm = isMultiTeam
@@ -381,6 +463,23 @@ export default function MatchResultScreen() {
         title={teams.map((t) => t.name).join(' – ')}
       />
 
+      <ArrivalStrip
+        disabled={!activeCheckin}
+        disabledHint="Erst an der Station einchecken, dann lässt sich der Laufzettel führen."
+        now={now}
+        onArrive={(participantId) => {
+          haptic('medium');
+          void setTeamVisit(participantId, { arrivedAt: new Date().toISOString() });
+        }}
+        onRelease={(participantId) => {
+          haptic('success');
+          void setTeamVisit(participantId, { releasedAt: new Date().toISOString() });
+        }}
+        onUndoArrival={(participantId) => void setTeamVisit(participantId, { arrivedAt: null })}
+        onUndoRelease={(participantId) => void setTeamVisit(participantId, { releasedAt: null })}
+        rows={arrivalRows}
+      />
+
       <MatchInfo
         game={game}
         onRules={() => router.push({ pathname: '/cockpit/rules', params: { gameId: game.id } })}
@@ -402,7 +501,7 @@ export default function MatchResultScreen() {
           {teams.map((team) => (
             <NumberPad
               key={team.id}
-              onChange={(next) => setValues((prev) => ({ ...prev, [team.id]: next }))}
+              onChange={(next) => changeValue(team.id, next)}
               team={team}
               unit={game.unit}
               value={values[team.id] ?? 0}
@@ -412,7 +511,7 @@ export default function MatchResultScreen() {
       ) : !isMultiTeam ? (
         <OutcomeSegments
           allowTies={game.allow_ties}
-          onChange={setOutcome}
+          onChange={changeOutcome}
           teams={teams as [Participant, Participant]}
           value={outcome}
         />
