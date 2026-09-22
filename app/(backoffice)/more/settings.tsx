@@ -123,7 +123,7 @@ function SettingsContent() {
           <DevicesCard eventId={eventId} />
         </Section>
         <OrganizersCard eventId={eventId} />
-        {event.status === 'draft' ? <DangerZoneCard eventId={eventId} /> : null}
+        <DangerZoneCard eventId={eventId} eventName={event.name} />
       </View>
     </Screen>
   );

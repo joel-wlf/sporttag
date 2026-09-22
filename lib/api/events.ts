@@ -105,26 +105,33 @@ export function useSetEventStatus(eventId: string) {
   });
 }
 
+export type PublishEventResult = { event: EventRow; accessCode: string };
+
+/** Veröffentlicht ein Entwurfs-Event und erzeugt dabei einen frischen Veranstaltungscode. */
 export function usePublishEvent(eventId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (): Promise<PublishEventResult> => {
       const { data, error } = await supabase.rpc('publish_event', { p_event_id: eventId });
       if (error) throw error;
-      return data;
+      const row = data?.[0];
+      if (!row) throw new Error('publish_event returned no result');
+      return { event: row.event, accessCode: row.access_code };
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: eventKey(eventId) });
       void queryClient.invalidateQueries({ queryKey: eventsKey });
+      void queryClient.invalidateQueries({ queryKey: ['events', eventId, 'access-code'] });
     },
   });
 }
 
-export function useDeleteDraftEvent() {
+/** Löscht ein Event endgültig, unabhängig vom Status (Entwurf, veröffentlicht, laufend, ...). */
+export function useDeleteEvent() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (eventId: string) => {
-      const { error } = await supabase.rpc('delete_draft_event', { p_event_id: eventId });
+      const { error } = await supabase.rpc('delete_event', { p_event_id: eventId });
       if (error) throw error;
     },
     onSuccess: () => {

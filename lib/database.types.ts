@@ -222,6 +222,7 @@ export type Database = {
           device_id: string
           downloaded_plan_version: number
           event_id: string
+          expected: boolean
           final_sequence: number | null
           last_reported_sequence: number
           reconciled_at: string | null
@@ -232,6 +233,7 @@ export type Database = {
           device_id: string
           downloaded_plan_version: number
           event_id: string
+          expected?: boolean
           final_sequence?: number | null
           last_reported_sequence?: number
           reconciled_at?: string | null
@@ -242,6 +244,7 @@ export type Database = {
           device_id?: string
           downloaded_plan_version?: number
           event_id?: string
+          expected?: boolean
           final_sequence?: number | null
           last_reported_sequence?: number
           reconciled_at?: string | null
@@ -514,6 +517,7 @@ export type Database = {
           ntfy_base_url: string | null
           ntfy_topic: string | null
           plan_version: number
+          reconciled_at: string | null
           round_minutes: number
           schedule_start_time: string
           staff_assignment_mode: string
@@ -538,6 +542,7 @@ export type Database = {
           ntfy_base_url?: string | null
           ntfy_topic?: string | null
           plan_version?: number
+          reconciled_at?: string | null
           round_minutes?: number
           schedule_start_time?: string
           staff_assignment_mode?: string
@@ -562,6 +567,7 @@ export type Database = {
           ntfy_base_url?: string | null
           ntfy_topic?: string | null
           plan_version?: number
+          reconciled_at?: string | null
           round_minutes?: number
           schedule_start_time?: string
           staff_assignment_mode?: string
@@ -731,6 +737,13 @@ export type Database = {
             referencedColumns: ["event_id", "id"]
           },
           {
+            foreignKeyName: "match_participants_event_id_match_id_fkey"
+            columns: ["event_id", "match_id"]
+            isOneToOne: false
+            referencedRelation: "result_points"
+            referencedColumns: ["event_id", "match_id"]
+          },
+          {
             foreignKeyName: "match_participants_event_id_team_id_fkey"
             columns: ["event_id", "team_id"]
             isOneToOne: false
@@ -877,6 +890,13 @@ export type Database = {
             referencedColumns: ["event_id", "id"]
           },
           {
+            foreignKeyName: "result_revisions_event_id_match_id_fkey"
+            columns: ["event_id", "match_id"]
+            isOneToOne: false
+            referencedRelation: "result_points"
+            referencedColumns: ["event_id", "match_id"]
+          },
+          {
             foreignKeyName: "result_revisions_event_id_request_id_fkey"
             columns: ["event_id", "request_id"]
             isOneToOne: false
@@ -898,9 +918,9 @@ export type Database = {
           captured_at: string
           checkin_id: string | null
           device_access_id: string | null
-          device_id: string
+          device_id: string | null
           event_id: string
-          local_sequence: number
+          local_sequence: number | null
           match_id: string
           payload: Json
           payload_hash: string
@@ -916,9 +936,9 @@ export type Database = {
           captured_at: string
           checkin_id?: string | null
           device_access_id?: string | null
-          device_id: string
+          device_id?: string | null
           event_id: string
-          local_sequence: number
+          local_sequence?: number | null
           match_id: string
           payload: Json
           payload_hash: string
@@ -934,9 +954,9 @@ export type Database = {
           captured_at?: string
           checkin_id?: string | null
           device_access_id?: string | null
-          device_id?: string
+          device_id?: string | null
           event_id?: string
-          local_sequence?: number
+          local_sequence?: number | null
           match_id?: string
           payload?: Json
           payload_hash?: string
@@ -975,6 +995,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "matches"
             referencedColumns: ["event_id", "id"]
+          },
+          {
+            foreignKeyName: "result_submissions_event_id_match_id_fkey"
+            columns: ["event_id", "match_id"]
+            isOneToOne: false
+            referencedRelation: "result_points"
+            referencedColumns: ["event_id", "match_id"]
           },
           {
             foreignKeyName: "result_submissions_resolution_request_id_fkey"
@@ -1024,6 +1051,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "matches"
             referencedColumns: ["event_id", "id"]
+          },
+          {
+            foreignKeyName: "result_values_event_id_match_id_fkey"
+            columns: ["event_id", "match_id"]
+            isOneToOne: false
+            referencedRelation: "result_points"
+            referencedColumns: ["event_id", "match_id"]
           },
           {
             foreignKeyName: "result_values_event_id_participant_id_fkey"
@@ -1380,15 +1414,42 @@ export type Database = {
             referencedRelation: "matches"
             referencedColumns: ["event_id", "id"]
           },
+          {
+            foreignKeyName: "result_revisions_event_id_match_id_fkey"
+            columns: ["event_id", "match_id"]
+            isOneToOne: false
+            referencedRelation: "result_points"
+            referencedColumns: ["event_id", "match_id"]
+          },
         ]
+      }
+      result_points: {
+        Row: {
+          event_id: string | null
+          match_id: string | null
+          measured_value: number | null
+          outcome: string | null
+          placement: number | null
+          points: number | null
+          recorded_at: string | null
+          rule_mode: string | null
+          team_id: string | null
+          version: number | null
+        }
+        Relationships: []
       }
       standings: {
         Row: {
+          draws: number | null
           event_id: string | null
           last_result_at: string | null
+          losses: number | null
+          matches_played: number | null
+          rank: number | null
           table_points: number | null
           team_id: string | null
           team_name: string | null
+          wins: number | null
         }
         Relationships: [
           {
@@ -1421,6 +1482,14 @@ export type Database = {
         }
       }
       check_event_readiness: { Args: { p_event_id: string }; Returns: Json }
+      check_event_reconciliation: {
+        Args: { p_event_id: string }
+        Returns: Json
+      }
+      confirm_event_reconciliation: {
+        Args: { p_event_id: string }
+        Returns: undefined
+      }
       create_event: {
         Args: {
           p_event_date: string
@@ -1441,6 +1510,7 @@ export type Database = {
           ntfy_base_url: string | null
           ntfy_topic: string | null
           plan_version: number
+          reconciled_at: string | null
           round_minutes: number
           schedule_start_time: string
           staff_assignment_mode: string
@@ -1460,6 +1530,36 @@ export type Database = {
         }
       }
       delete_draft_event: { Args: { p_event_id: string }; Returns: undefined }
+      delete_event: { Args: { p_event_id: string }; Returns: undefined }
+      device_sync_overview: {
+        Args: { p_event_id: string }
+        Returns: {
+          accepted_count: number
+          access_id: string
+          active_checkin_block_id: string
+          active_checkin_station_id: string
+          conflict_count: number
+          current_plan_version: number
+          device_id: string
+          downloaded_plan_version: number
+          expected: boolean
+          final_sequence: number
+          granted_at: string
+          label: string
+          last_reported_sequence: number
+          last_seen_at: string
+          missing_sequences: number[]
+          needs_review_count: number
+          received_count: number
+          reconciled_at: string
+          revoked_at: string
+        }[]
+      }
+      dismiss_submissions: {
+        Args: { p_event_id: string; p_reason: string; p_request_ids: string[] }
+        Returns: number
+      }
+      get_station_package: { Args: { p_event_id: string }; Returns: Json }
       list_event_organizers: {
         Args: { p_event_id: string }
         Returns: {
@@ -1470,38 +1570,26 @@ export type Database = {
           user_id: string
         }[]
       }
+      organizer_record_result: {
+        Args: {
+          p_base_result_version: number
+          p_event_id: string
+          p_match_id: string
+          p_payload: Json
+          p_reason?: string
+          p_resolves?: string[]
+        }
+        Returns: {
+          request_id: string
+          result_version: number
+        }[]
+      }
       publish_event: {
         Args: { p_event_id: string }
         Returns: {
-          active_map_id: string | null
-          break_minutes: number
-          changeover_minutes: number
-          created_at: string
-          default_scoring_rule_id: string | null
-          event_date: string
-          id: string
-          motto: string | null
-          name: string
-          ntfy_base_url: string | null
-          ntfy_topic: string | null
-          plan_version: number
-          round_minutes: number
-          schedule_start_time: string
-          staff_assignment_mode: string
-          status: string
-          timezone: string
-          updated_at: string
-          venue_east: number | null
-          venue_north: number | null
-          venue_south: number | null
-          venue_west: number | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "events"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+          access_code: string
+          event: Database["public"]["Tables"]["events"]["Row"]
+        }[]
       }
       redeem_access_code: {
         Args: { p_code: string; p_device_id: string; p_device_label: string }
@@ -1520,6 +1608,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      report_device_state: {
+        Args: {
+          p_device_id: string
+          p_event_id: string
+          p_last_sequence?: number
+          p_plan_version: number
+        }
+        Returns: undefined
       }
       revoke_access_code: { Args: { p_event_id: string }; Returns: undefined }
       revoke_device_access: {
@@ -1546,6 +1643,10 @@ export type Database = {
         Args: { p_cells: Json; p_event_id: string }
         Returns: undefined
       }
+      set_device_expected: {
+        Args: { p_device_id: string; p_event_id: string; p_expected: boolean }
+        Returns: undefined
+      }
       set_event_status: {
         Args: { p_event_id: string; p_status: string }
         Returns: {
@@ -1561,6 +1662,7 @@ export type Database = {
           ntfy_base_url: string | null
           ntfy_topic: string | null
           plan_version: number
+          reconciled_at: string | null
           round_minutes: number
           schedule_start_time: string
           staff_assignment_mode: string
@@ -1578,6 +1680,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      submit_device_manifest: {
+        Args: {
+          p_device_id: string
+          p_entries: Json
+          p_event_id: string
+          p_final_sequence: number
+        }
+        Returns: Json
       }
       submit_result: {
         Args: {
@@ -1601,6 +1712,33 @@ export type Database = {
           result_version: number
           status: string
         }[]
+      }
+      sync_station_checkin: {
+        Args: {
+          p_checked_in_at: string
+          p_checked_out_at?: string
+          p_device_id: string
+          p_event_id: string
+          p_id: string
+          p_staff_ids?: string[]
+          p_station_setup_id: string
+        }
+        Returns: {
+          checked_in_at: string
+          checked_out_at: string | null
+          created_at: string
+          device_access_id: string
+          event_id: string
+          id: string
+          received_at: string
+          station_setup_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "station_checkins"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {

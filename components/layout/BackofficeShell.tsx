@@ -17,7 +17,6 @@ const statusLabels: Record<EventStatus, string> = {
   published: 'Veröffentlicht',
   running: 'Laufend',
   finished: 'Beendet',
-  archived: 'Archiviert',
 };
 
 const statusTones: Record<EventStatus, BadgeTone> = {
@@ -25,7 +24,6 @@ const statusTones: Record<EventStatus, BadgeTone> = {
   published: 'primary',
   running: 'success',
   finished: 'secondary',
-  archived: 'neutral',
 };
 
 function Brand() {

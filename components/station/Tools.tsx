@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
 import { useTokens } from '@/components/ui/theme';
 import { haptic } from '@/lib/haptics';
+import type { ToolConfig } from '@/lib/station/types';
 
 const format = (totalSeconds: number) => {
   const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
@@ -56,12 +57,23 @@ function ToolRow({ label, value, children }: { label: string; value: string; chi
   );
 }
 
-export function ToolStrip({ defaultSeconds = 900 }: { defaultSeconds?: number }) {
+export function ToolStrip({ config, defaultSeconds = 900 }: { config?: ToolConfig[]; defaultSeconds?: number }) {
+  // Konfiguration aus dem Spiel (falls vorhanden) bestimmt die Startwerte;
+  // ohne `tools_config` gelten die bisherigen Vorgaben.
+  const timerConfig = config?.find((t): t is Extract<ToolConfig, { type: 'timer' }> => t.type === 'timer');
+  const counterConfig = config?.find((t): t is Extract<ToolConfig, { type: 'counter' }> => t.type === 'counter');
+  const stopwatchConfig = config?.find((t) => t.type === 'stopwatch');
+
   const [elapsed, setElapsed] = useState(0);
   const [stopwatchRunning, setStopwatchRunning] = useState(false);
-  const [remaining, setRemaining] = useState(defaultSeconds);
+  const [remaining, setRemaining] = useState(timerConfig?.seconds ?? defaultSeconds);
   const [timerRunning, setTimerRunning] = useState(false);
-  const [count, setCount] = useState(0);
+  const [count, setCount] = useState(counterConfig?.start ?? 0);
+  const counterStep = counterConfig?.step ?? 1;
+
+  const stopwatchLabel = stopwatchConfig?.label ?? 'Stoppuhr';
+  const timerLabel = timerConfig?.label ?? 'Timer';
+  const counterLabel = counterConfig?.label ?? 'Zähler';
 
   useEffect(() => {
     if (!stopwatchRunning) return;
@@ -81,7 +93,7 @@ export function ToolStrip({ defaultSeconds = 900 }: { defaultSeconds?: number })
 
   return (
     <View className="gap-3 rounded-card border border-line bg-surface p-4">
-      <ToolRow label="Stoppuhr" value={format(elapsed)}>
+      <ToolRow label={stopwatchLabel} value={format(elapsed)}>
         <IconButton
           icon={stopwatchRunning ? 'pause' : 'play'}
           onPress={() => setStopwatchRunning((value) => !value)}
@@ -95,7 +107,7 @@ export function ToolStrip({ defaultSeconds = 900 }: { defaultSeconds?: number })
           }}
         />
       </ToolRow>
-      <ToolRow label="Timer" value={format(remaining)}>
+      <ToolRow label={timerLabel} value={format(remaining)}>
         <IconButton icon="minus" onPress={() => setRemaining((value) => Math.max(0, value - 60))} />
         <IconButton
           icon={timerRunning ? 'pause' : 'play'}
@@ -103,9 +115,9 @@ export function ToolStrip({ defaultSeconds = 900 }: { defaultSeconds?: number })
           tone="primary"
         />
       </ToolRow>
-      <ToolRow label="Zähler" value={String(count)}>
-        <IconButton icon="minus" onPress={() => setCount((value) => Math.max(0, value - 1))} />
-        <IconButton icon="plus" onPress={() => setCount((value) => value + 1)} tone="primary" />
+      <ToolRow label={counterLabel} value={String(count)}>
+        <IconButton icon="minus" onPress={() => setCount((value) => Math.max(0, value - counterStep))} />
+        <IconButton icon="plus" onPress={() => setCount((value) => value + counterStep)} tone="primary" />
       </ToolRow>
     </View>
   );

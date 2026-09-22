@@ -19,7 +19,6 @@ const statusLabels: Record<EventStatus, string> = {
   published: 'Veröffentlicht',
   running: 'Laufend',
   finished: 'Beendet',
-  archived: 'Archiviert',
 };
 
 export default function EventsScreen() {
@@ -33,7 +32,7 @@ export default function EventsScreen() {
     draft: events?.filter((e) => e.status === 'draft').length ?? 0,
     published: events?.filter((e) => e.status === 'published').length ?? 0,
     running: events?.filter((e) => e.status === 'running').length ?? 0,
-    archived: events?.filter((e) => e.status === 'archived' || e.status === 'finished').length ?? 0,
+    finished: events?.filter((e) => e.status === 'finished').length ?? 0,
   };
 
   const openEvent = (id: string) => {
@@ -54,7 +53,7 @@ export default function EventsScreen() {
           <StatCard icon="planning" label="Entwurf" value={String(counts.draft)} />
           <StatCard icon="upload" label="Veröffentlicht" value={String(counts.published)} />
           <StatCard icon="live" label="Laufend" value={String(counts.running)} />
-          <StatCard icon="package" label="Archiviert" value={String(counts.archived)} />
+          <StatCard icon="package" label="Beendet" value={String(counts.finished)} />
         </View>
       </Section>
 

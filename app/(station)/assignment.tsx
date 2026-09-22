@@ -11,33 +11,24 @@ import {
 } from 'react-native';
 import { Screen } from '@/components/layout/Screen';
 import { ActionBar } from '@/components/station/ActionBar';
-import {
-  dayPlan,
-  entryState,
-  findDayEntry,
-  type DayEntry,
-  type EntryState,
-} from '@/components/station/demoData';
+import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Icon } from '@/components/ui/Icon';
 import { useTokens } from '@/components/ui/theme';
 import { haptic } from '@/lib/haptics';
+import { entryState, findDayEntry, formatTime, type EntryState } from '@/lib/station/package';
+import type { DayEntry } from '@/lib/station/types';
 import { useStationSession } from '@/providers/StationSessionProvider';
 
 const GAP = 12;
 
 const entryTitle = (entry: DayEntry) =>
-  entry.kind === 'assignment' ? `${entry.block} · ${entry.station}` : entry.block;
+  entry.kind === 'assignment' ? `${entry.block.name} · ${entry.station.name}` : entry.block.name;
 
 const entryRowLabel = (entry: DayEntry) => {
-  if (entry.kind === 'assignment') return `${entry.station} · ${entry.game}`;
-  if (entry.kind === 'off') return `${entry.block} · Kein Einsatz`;
-  return entry.block;
-};
-
-const entrySubtitle = (entry: DayEntry) => {
-  if (entry.kind === 'assignment') return `${entry.game} · ${entry.groups} Gruppen`;
-  if (entry.kind === 'off') return 'Kein Einsatz';
-  return undefined;
+  if (entry.kind === 'assignment') return `${entry.station.name} · ${entry.game.name}`;
+  if (entry.kind === 'off') return `${entry.block.name} · Kein Einsatz`;
+  return entry.block.name;
 };
 
 function DayCard({
@@ -45,15 +36,16 @@ function DayCard({
   state,
   checkedIn,
   width,
+  timezone,
 }: {
   entry: DayEntry;
   state: EntryState;
   checkedIn: boolean;
   width: number;
+  timezone: string;
 }) {
   const tokens = useTokens();
   const isAssignment = entry.kind === 'assignment';
-  const subtitle = entrySubtitle(entry);
 
   const surface = checkedIn
     ? 'bg-primary'
@@ -99,17 +91,23 @@ function DayCard({
       <View className="gap-2">
         <View className="flex-row items-baseline gap-2">
           <Text className={['text-stat font-extrabold leading-[44px] tracking-[-1px]', ink].join(' ')}>
-            {entry.start}
+            {formatTime(entry.block.starts_at, timezone)}
           </Text>
-          <Text className={['text-sm font-semibold', sub].join(' ')}>bis {entry.end}</Text>
+          <Text className={['text-sm font-semibold', sub].join(' ')}>
+            bis {formatTime(entry.block.ends_at, timezone)}
+          </Text>
         </View>
         <View className="gap-0.5">
           <Text className={['text-lg font-extrabold', ink].join(' ')} numberOfLines={1}>
             {entryTitle(entry)}
           </Text>
-          {subtitle ? (
+          {entry.kind === 'assignment' ? (
             <Text className={['text-sm', sub].join(' ')} numberOfLines={1}>
-              {subtitle}
+              {entry.game.name}
+            </Text>
+          ) : entry.kind === 'off' ? (
+            <Text className={['text-sm', sub].join(' ')} numberOfLines={1}>
+              Kein Einsatz
             </Text>
           ) : null}
         </View>
@@ -121,46 +119,51 @@ function DayCard({
 export default function StationDayScreen() {
   const router = useRouter();
   const tokens = useTokens();
-  const { staffName, checkedInId, checkOut } = useStationSession();
+  const { pkg, staffName, entries, checkedInEntryId, checkOut, syncCounts } = useStationSession();
   const scrollRef = useRef<ScrollView>(null);
   const positioned = useRef(false);
   const [width, setWidth] = useState(0);
-  const [nowMinutes, setNowMinutes] = useState(() => {
-    const now = new Date();
-    return now.getHours() * 60 + now.getMinutes();
-  });
+  const [now, setNow] = useState(() => new Date());
+  const timezone = pkg?.event.timezone ?? 'Europe/Berlin';
 
   const [index, setIndex] = useState(() => {
-    const checkedIndex = dayPlan.findIndex((entry) => entry.id === checkedInId);
+    const checkedIndex = entries.findIndex((entry) => entry.id === checkedInEntryId);
     if (checkedIndex >= 0) return checkedIndex;
-    const start = new Date();
-    const minutes = start.getHours() * 60 + start.getMinutes();
-    const currentIndex = dayPlan.findIndex((entry) => entryState(entry, minutes) === 'now');
+    const currentIndex = entries.findIndex((entry) => entryState(entry, new Date()) === 'now');
     if (currentIndex >= 0) return currentIndex;
-    const nextIndex = dayPlan.findIndex((entry) => entryState(entry, minutes) === 'future');
-    return nextIndex >= 0 ? nextIndex : dayPlan.length - 1;
+    const nextIndex = entries.findIndex((entry) => entryState(entry, new Date()) === 'future');
+    return nextIndex >= 0 ? nextIndex : Math.max(0, entries.length - 1);
   });
 
   useEffect(() => {
-    const id = setInterval(() => {
-      const now = new Date();
-      setNowMinutes(now.getHours() * 60 + now.getMinutes());
-    }, 30000);
+    const id = setInterval(() => setNow(new Date()), 30000);
     return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
-    if (!width || positioned.current) return;
+    if (!width || positioned.current || entries.length === 0) return;
     positioned.current = true;
     scrollRef.current?.scrollTo({ x: index * (width + GAP), animated: false });
-  }, [width, index]);
+  }, [width, index, entries.length]);
 
-  // Beim Zurückkehren auf den Screen verliert die Liste ihre Scrollposition.
   useFocusEffect(
     useCallback(() => {
       if (width) scrollRef.current?.scrollTo({ x: index * (width + GAP), animated: false });
     }, [width, index]),
   );
+
+  if (entries.length === 0) {
+    return (
+      <Screen density="compact" size="narrow">
+        <EmptyState
+          action={<Button label="Person wechseln" onPress={() => router.push('/who')} />}
+          description="Für diese Person ist heute kein Block geplant."
+          icon="clock"
+          title="Kein Einsatz geplant"
+        />
+      </Screen>
+    );
+  }
 
   const select = (next: number) => {
     setIndex(next);
@@ -176,20 +179,15 @@ export default function StationDayScreen() {
     if (next !== index) setIndex(next);
   };
 
-  const selected = dayPlan[index];
-  const activeEntry = findDayEntry(checkedInId);
-  const selectedIsActive = checkedInId === selected.id;
+  const selected = entries[index];
+  const activeEntry = findDayEntry(entries, checkedInEntryId);
+  const selectedIsActive = checkedInEntryId === selected.id;
 
   const goToMap = (entry: DayEntry) => {
     if (entry.kind !== 'assignment') return;
     router.push({
       pathname: '/map',
-      params: {
-        station: entry.station,
-        block: entry.block,
-        game: entry.game,
-        entryId: entry.id,
-      },
+      params: { setupId: entry.setupId, station: entry.station.name, block: entry.block.name, game: entry.game.name },
     });
   };
 
@@ -197,13 +195,11 @@ export default function StationDayScreen() {
     if (entry.kind !== 'assignment') return;
     router.push({
       pathname: '/cockpit',
-      params: { station: entry.station, block: entry.block, game: entry.game },
+      params: { setupId: entry.setupId, station: entry.station.name, block: entry.block.name, game: entry.game.name },
     });
   };
 
-  const nextAssignment = dayPlan.findIndex(
-    (entry) => entry.kind === 'assignment' && entryState(entry, nowMinutes) !== 'past',
-  );
+  const nextAssignment = entries.findIndex((entry) => entry.kind === 'assignment' && entryState(entry, now) !== 'past');
 
   const action = selectedIsActive
     ? {
@@ -212,7 +208,7 @@ export default function StationDayScreen() {
           rightIcon: 'chevron-right' as const,
           onPress: () => goToCockpit(selected),
         },
-        secondary: { label: 'Auschecken', haptic: 'warning' as const, onPress: checkOut },
+        secondary: { label: 'Auschecken', haptic: 'warning' as const, onPress: () => void checkOut() },
       }
     : selected.kind === 'assignment'
       ? {
@@ -251,17 +247,30 @@ export default function StationDayScreen() {
           <Text className="text-sm font-semibold text-subtle">{staffName ?? 'Tagesplan'}</Text>
           <Icon color={tokens.subtle} name="chevron-down" size={14} />
         </Pressable>
-        {activeEntry ? (
-          <Pressable
-            accessibilityLabel={`Eingecheckt in ${activeEntry.block}, anzeigen`}
-            accessibilityRole="button"
-            className="flex-row items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-1 active:opacity-70"
-            onPress={() => select(dayPlan.findIndex((entry) => entry.id === activeEntry.id))}
-          >
-            <Icon color={tokens.success} name="check-circle" size={13} />
-            <Text className="text-2xs font-bold text-success">{activeEntry.block}</Text>
-          </Pressable>
-        ) : null}
+        <View className="flex-row items-center gap-2">
+          {syncCounts.pending + syncCounts.sending > 0 ? (
+            <Pressable
+              accessibilityLabel={`${syncCounts.pending + syncCounts.sending} Ergebnisse warten auf Übertragung`}
+              accessibilityRole="button"
+              className="flex-row items-center gap-1.5 rounded-full bg-warning-soft px-2.5 py-1 active:opacity-70"
+              onPress={() => router.push('/cockpit/sync')}
+            >
+              <Icon color={tokens.warning} name="wifi-off" size={13} />
+              <Text className="text-2xs font-bold text-warning">{syncCounts.pending + syncCounts.sending}</Text>
+            </Pressable>
+          ) : null}
+          {activeEntry ? (
+            <Pressable
+              accessibilityLabel={`Eingecheckt in ${activeEntry.block.name}, anzeigen`}
+              accessibilityRole="button"
+              className="flex-row items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-1 active:opacity-70"
+              onPress={() => select(entries.findIndex((entry) => entry.id === activeEntry.id))}
+            >
+              <Icon color={tokens.success} name="check-circle" size={13} />
+              <Text className="text-2xs font-bold text-success">{activeEntry.block.name}</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
       <ScrollView
@@ -276,12 +285,13 @@ export default function StationDayScreen() {
         style={{ flexGrow: 0 }}
       >
         {width
-          ? dayPlan.map((entry) => (
+          ? entries.map((entry) => (
               <DayCard
-                checkedIn={checkedInId === entry.id}
+                checkedIn={checkedInEntryId === entry.id}
                 entry={entry}
                 key={entry.id}
-                state={entryState(entry, nowMinutes)}
+                state={entryState(entry, now)}
+                timezone={timezone}
                 width={width}
               />
             ))
@@ -289,7 +299,7 @@ export default function StationDayScreen() {
       </ScrollView>
 
       <View className="flex-row justify-center gap-1.5">
-        {dayPlan.map((entry, position) => (
+        {entries.map((entry, position) => (
           <View
             className={[
               'h-1.5 rounded-full',
@@ -301,10 +311,10 @@ export default function StationDayScreen() {
       </View>
 
       <View className="gap-0.5">
-        {dayPlan.map((entry, position) => {
-          const state = entryState(entry, nowMinutes);
+        {entries.map((entry, position) => {
+          const state = entryState(entry, now);
           const isSelected = position === index;
-          const isActive = checkedInId === entry.id;
+          const isActive = checkedInEntryId === entry.id;
           return (
             <Pressable
               accessibilityRole="button"
@@ -323,7 +333,7 @@ export default function StationDayScreen() {
                   state === 'now' ? 'text-primary' : 'text-subtle',
                 ].join(' ')}
               >
-                {entry.start}
+                {formatTime(entry.block.starts_at, timezone)}
               </Text>
               <Text
                 className={[

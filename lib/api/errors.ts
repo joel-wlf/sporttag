@@ -29,8 +29,27 @@ export function friendlyErrorMessage(error: unknown): string {
     if (message.includes('event is not ready to publish')) return 'Die Veranstaltung erfüllt noch nicht alle Voraussetzungen für die Veröffentlichung.';
     if (message.includes('organizer membership required')) return 'Dafür ist eine Organisatoren-Mitgliedschaft nötig.';
     if (message.includes('organizer account required')) return 'Dafür ist ein persönliches Organisatorenkonto nötig.';
+    if (message.includes('result_version_changed')) return 'Der Ergebnisstand hat sich zwischenzeitlich geändert. Bitte neu laden und erneut prüfen.';
+    if (message.includes('reason_required')) return 'Bitte eine Begründung angeben.';
+    if (message.includes('ties_not_allowed')) return 'Für dieses Spiel sind Unentschieden nicht erlaubt.';
+    if (message.includes('match is cancelled')) return 'Für ein abgesagtes Match kann kein Ergebnis erfasst werden.';
+    if (
+      message.includes('exactly one value per match participant') ||
+      message.includes('invalid participant') ||
+      message.includes('duplicate participants')
+    ) {
+      return 'Die Ergebniswerte passen nicht zu den Teilnehmenden dieses Matches.';
+    }
     if (error.code === '23505') return 'Dieser Eintrag existiert bereits.';
-    if (error.code === '23503') return 'Verknüpfter Eintrag nicht gefunden.';
+    if (error.code === '23503') {
+      const details = error.details ?? '';
+      if (details.includes('station_setups')) {
+        return 'Diese Station ist noch für ein Spiel in einem Block eingeteilt. Entferne zuerst die Zuordnung im Zeitplan, bevor du die Station löschst.';
+      }
+      // 23503 = foreign_key_violation: Löschen blockiert, weil ein anderer Eintrag noch darauf verweist –
+      // nicht, weil etwas fehlt. Die alte Meldung "Verknüpfter Eintrag nicht gefunden" behauptete fälschlich das Gegenteil.
+      return 'Dieser Eintrag wird an anderer Stelle noch verwendet und kann deshalb nicht gelöscht werden.';
+    }
     if (error.code === '42501') return 'Keine Berechtigung für diese Aktion.';
     return message || 'Unbekannter Datenbankfehler.';
   }

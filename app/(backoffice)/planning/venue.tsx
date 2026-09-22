@@ -7,15 +7,19 @@ import { boundsFromCorners } from '@/components/map/geo';
 import type { LngLat, MapPin } from '@/components/map/types';
 import { Header } from '@/components/layout/Header';
 import { Screen } from '@/components/layout/Screen';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { DataTable, DataTableText, EditableCell, RowActionButton, RowActions } from '@/components/ui/DataTable';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Icon } from '@/components/ui/Icon';
 import { ListRow } from '@/components/ui/ListRow';
 import { useTokens } from '@/components/ui/theme';
+import { useDesktop } from '@/components/ui/useDesktop';
+import { confirmAsync } from '@/lib/confirm';
 import { friendlyErrorMessage } from '@/lib/api/errors';
 import { useUpdateEvent, venueBoundsFromEvent } from '@/lib/api/events';
-import { type StationRow, useStations } from '@/lib/api/stations';
+import { type StationRow, useDeleteStation, useStations, useUpsertStation } from '@/lib/api/stations';
 import { useActiveEvent } from '@/providers/ActiveEventProvider';
 
 function VenueContent() {
@@ -23,12 +27,26 @@ function VenueContent() {
   const { eventId, event } = useActiveEvent();
   const { data: stations } = useStations(eventId);
   const updateVenue = useUpdateEvent(eventId ?? '');
+  const upsertStation = useUpsertStation(eventId ?? '');
+  const removeStation = useDeleteStation(eventId ?? '');
+  const desktop = useDesktop();
+  const [tableError, setTableError] = useState<string | null>(null);
 
   const [editing, setEditing] = useState<StationRow | 'new' | null>(null);
   const [pinTarget, setPinTarget] = useState<StationRow | 'new' | null>(null);
   const [pendingCoordinate, setPendingCoordinate] = useState<LngLat | null>(null);
   const [mode, setMode] = useState<VenueMapMode>({ kind: 'idle' });
   const [boundsError, setBoundsError] = useState<string | null>(null);
+
+  const handleDeleteStation = async (station: StationRow) => {
+    if (!(await confirmAsync(`„${station.name}“ wirklich löschen?`))) return;
+    setTableError(null);
+    try {
+      await removeStation.mutateAsync(station.id);
+    } catch (err) {
+      setTableError(friendlyErrorMessage(err));
+    }
+  };
 
   const bounds = event ? venueBoundsFromEvent(event) : null;
   const pins: MapPin[] = (stations ?? []).flatMap((station) =>
@@ -156,6 +174,58 @@ function VenueContent() {
             title="Noch keine Stationen"
           />
         </Card>
+      ) : desktop ? (
+        <Card className="overflow-hidden p-0">
+          <DataTable
+            columns={[
+              {
+                key: 'name',
+                header: 'Station',
+                flex: 2,
+                render: (s) => (
+                  <EditableCell
+                    onCommit={(v) => v.trim() && upsertStation.mutate({ id: s.id, name: v.trim() })}
+                    value={s.name}
+                  />
+                ),
+              },
+              {
+                key: 'location',
+                header: 'Standort',
+                flex: 2,
+                render: (s) =>
+                  s.latitude === null ? (
+                    <EditableCell
+                      onCommit={(v) => upsertStation.mutate({ id: s.id, name: s.name, location: v.trim() || null })}
+                      placeholder="Noch kein Standort"
+                      subtle
+                      value={s.location ?? ''}
+                    />
+                  ) : (
+                    <DataTableText subtle>{s.location ?? `${s.latitude}, ${s.longitude}`}</DataTableText>
+                  ),
+              },
+              {
+                key: 'actions',
+                header: '',
+                width: 80,
+                render: (s) => (
+                  <RowActions>
+                    <RowActionButton accessibilityLabel="Station bearbeiten" icon="edit" onPress={() => openStation(s)} />
+                    <RowActionButton
+                      accessibilityLabel="Station löschen"
+                      icon="trash"
+                      onPress={() => handleDeleteStation(s)}
+                      tone="danger"
+                    />
+                  </RowActions>
+                ),
+              },
+            ]}
+            data={stations}
+            keyExtractor={(s) => s.id}
+          />
+        </Card>
       ) : (
         <Card>
           <View className="gap-1">
@@ -172,6 +242,7 @@ function VenueContent() {
           </View>
         </Card>
       )}
+      {tableError ? <Badge tone="danger">{tableError}</Badge> : null}
 
       {eventId ? (
         <StationFormModal

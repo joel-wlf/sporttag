@@ -3,24 +3,21 @@ import { Pressable, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Input, InputField } from '@/components/ui/Input';
 import { useTokens } from '@/components/ui/theme';
-import { geocodePlace, getMapboxAccessToken, type GeocodeResult } from './mapStyle';
+import { geocodePlace, type GeocodeResult } from './mapStyle';
 
 export function PlaceSearch({ onSelect }: { onSelect: (result: GeocodeResult) => void }) {
   const tokens = useTokens();
-  const token = getMapboxAccessToken();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<GeocodeResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  if (!token) return null;
 
   const search = async () => {
     if (!query.trim()) return;
     setLoading(true);
     setError(null);
     try {
-      setResults(await geocodePlace(token, query));
+      setResults(await geocodePlace(query));
     } catch {
       setError('Suche fehlgeschlagen. Bitte erneut versuchen.');
       setResults([]);

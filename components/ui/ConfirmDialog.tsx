@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Modal, View } from 'react-native';
 import { Button, type ButtonVariant } from './Button';
 import { Card, CardDescription, CardHeader, CardTitle } from './Card';
@@ -10,8 +11,10 @@ export function ConfirmDialog({
   cancelLabel = 'Abbrechen',
   confirmVariant = 'danger',
   isLoading = false,
+  isConfirmDisabled = false,
   onConfirm,
   onCancel,
+  children,
 }: {
   visible: boolean;
   title: string;
@@ -20,8 +23,10 @@ export function ConfirmDialog({
   cancelLabel?: string;
   confirmVariant?: ButtonVariant;
   isLoading?: boolean;
+  isConfirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  children?: ReactNode;
 }) {
   return (
     <Modal animationType="fade" onRequestClose={onCancel} transparent visible={visible}>
@@ -31,9 +36,16 @@ export function ConfirmDialog({
             <CardTitle>{title}</CardTitle>
             {description ? <CardDescription>{description}</CardDescription> : null}
           </CardHeader>
+          {children}
           <View className="flex-row justify-end gap-3">
             <Button label={cancelLabel} onPress={onCancel} variant="outline" />
-            <Button isLoading={isLoading} label={confirmLabel} onPress={onConfirm} variant={confirmVariant} />
+            <Button
+              isDisabled={isConfirmDisabled}
+              isLoading={isLoading}
+              label={confirmLabel}
+              onPress={onConfirm}
+              variant={confirmVariant}
+            />
           </View>
         </Card>
       </View>

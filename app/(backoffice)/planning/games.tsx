@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Text, View } from 'react-native';
 import { RequireEvent } from '@/components/backoffice/RequireEvent';
 import { CopyTemplateModal } from '@/components/backoffice/planning/CopyTemplateModal';
 import { EventGameFormModal } from '@/components/backoffice/planning/EventGameFormModal';
@@ -10,15 +10,22 @@ import { Section } from '@/components/layout/Section';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { DataTable, DataTableText, EditableCell, RowActionButton, RowActions } from '@/components/ui/DataTable';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ListRow } from '@/components/ui/ListRow';
+import { useDesktop } from '@/components/ui/useDesktop';
 import {
   type EventGameRow,
   type ScoringRuleRow,
+  useDeleteEventGame,
+  useDeleteScoringRule,
   useEventGames,
   useScoringRules,
   useSetDefaultScoringRule,
+  useUpsertEventGame,
+  useUpsertScoringRule,
 } from '@/lib/api/games';
+import { confirmAsync } from '@/lib/confirm';
 import { friendlyErrorMessage } from '@/lib/api/errors';
 import { useActiveEvent } from '@/providers/ActiveEventProvider';
 
@@ -27,11 +34,16 @@ function GamesContent() {
   const { data: rules } = useScoringRules(eventId);
   const { data: games } = useEventGames(eventId);
   const setDefault = useSetDefaultScoringRule(eventId as string);
+  const upsertRule = useUpsertScoringRule(eventId as string);
+  const removeRule = useDeleteScoringRule(eventId as string);
+  const upsertGame = useUpsertEventGame(eventId as string);
+  const removeGame = useDeleteEventGame(eventId as string);
   const [editingRule, setEditingRule] = useState<ScoringRuleRow | 'new' | null>(null);
   const [editingGame, setEditingGame] = useState<EventGameRow | 'new' | null>(null);
   const [copyOpen, setCopyOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const locked = event?.status !== 'draft';
+  const desktop = useDesktop();
 
   const modeLabel = (mode: string) => (mode === 'win_draw_loss' ? 'Sieg/Unentschieden/Niederlage' : mode === 'placement' ? 'Platzierung' : 'Zahlwert');
 
@@ -39,6 +51,26 @@ function GamesContent() {
     setError(null);
     try {
       await setDefault.mutateAsync(ruleId);
+    } catch (err) {
+      setError(friendlyErrorMessage(err));
+    }
+  };
+
+  const handleDeleteRule = async (rule: ScoringRuleRow) => {
+    if (!(await confirmAsync(`„${rule.name}“ wirklich löschen?`))) return;
+    setError(null);
+    try {
+      await removeRule.mutateAsync(rule.id);
+    } catch (err) {
+      setError(friendlyErrorMessage(err));
+    }
+  };
+
+  const handleDeleteGame = async (game: EventGameRow) => {
+    if (!(await confirmAsync(`„${game.name}“ wirklich löschen?`))) return;
+    setError(null);
+    try {
+      await removeGame.mutateAsync(game.id);
     } catch (err) {
       setError(friendlyErrorMessage(err));
     }
@@ -59,6 +91,62 @@ function GamesContent() {
         {!rules || rules.length === 0 ? (
           <Card>
             <EmptyState description="Lege mindestens eine Wertungsregel an." icon="results" title="Keine Regeln" />
+          </Card>
+        ) : desktop ? (
+          <Card className="overflow-hidden p-0">
+            <DataTable
+              columns={[
+                {
+                  key: 'name',
+                  header: 'Regel',
+                  flex: 2,
+                  render: (rule) => (
+                    <View>
+                      <EditableCell
+                        onCommit={(v) =>
+                          v.trim() && upsertRule.mutate({ id: rule.id, name: v.trim(), mode: rule.mode, config: rule.config })
+                        }
+                        value={rule.name}
+                      />
+                      <Text className="px-1 text-[12px] text-subtle">{modeLabel(rule.mode)}</Text>
+                    </View>
+                  ),
+                },
+                {
+                  key: 'default',
+                  header: '',
+                  width: 140,
+                  align: 'right',
+                  render: (rule) => (
+                    <View className="items-end">
+                      {event?.default_scoring_rule_id === rule.id ? (
+                        <Badge tone="primary">Standard</Badge>
+                      ) : !locked ? (
+                        <Button label="Als Standard" onPress={() => handleSetDefault(rule.id)} size="sm" variant="outline" />
+                      ) : null}
+                    </View>
+                  ),
+                },
+                {
+                  key: 'actions',
+                  header: '',
+                  width: 80,
+                  render: (rule) => (
+                    <RowActions>
+                      <RowActionButton accessibilityLabel="Regel bearbeiten" icon="edit" onPress={() => setEditingRule(rule)} />
+                      <RowActionButton
+                        accessibilityLabel="Regel löschen"
+                        icon="trash"
+                        onPress={() => handleDeleteRule(rule)}
+                        tone="danger"
+                      />
+                    </RowActions>
+                  ),
+                },
+              ]}
+              data={rules}
+              keyExtractor={(rule) => rule.id}
+            />
           </Card>
         ) : (
           <Card>
@@ -102,6 +190,62 @@ function GamesContent() {
           <Card>
             <EmptyState description="Lege die Spiele dieser Veranstaltung an." icon="package" title="Keine Spiele" />
           </Card>
+        ) : desktop ? (
+          <Card className="overflow-hidden p-0">
+            <DataTable
+              columns={[
+                {
+                  key: 'name',
+                  header: 'Spiel',
+                  flex: 2,
+                  render: (g) => (
+                    <EditableCell
+                      onCommit={(v) =>
+                        v.trim() &&
+                        upsertGame.mutate({
+                          id: g.id,
+                          name: v.trim(),
+                          measurement_type: g.measurement_type,
+                          comparison_direction: g.comparison_direction,
+                        })
+                      }
+                      value={g.name}
+                    />
+                  ),
+                },
+                {
+                  key: 'teams',
+                  header: 'Teams',
+                  width: 110,
+                  render: (g) => <DataTableText subtle>{`${g.min_teams}–${g.max_teams}`}</DataTableText>,
+                },
+                {
+                  key: 'measurement',
+                  header: 'Wertung',
+                  width: 120,
+                  render: (g) => <DataTableText subtle>{g.measurement_type === 'outcome' ? 'Ausgang' : 'Zahlwert'}</DataTableText>,
+                },
+                {
+                  key: 'actions',
+                  header: '',
+                  width: 80,
+                  render: (g) => (
+                    <RowActions>
+                      <RowActionButton accessibilityLabel="Spiel bearbeiten" icon="edit" onPress={() => setEditingGame(g)} />
+                      <RowActionButton
+                        accessibilityLabel="Spiel löschen"
+                        icon="trash"
+                        onPress={() => handleDeleteGame(g)}
+                        tone="danger"
+                      />
+                    </RowActions>
+                  ),
+                },
+              ]}
+              data={games}
+              keyExtractor={(g) => g.id}
+            />
+          </Card>
         ) : (
           <Card>
             <View className="gap-1">
@@ -133,7 +277,6 @@ function GamesContent() {
             eventId={eventId}
             game={editingGame}
             key={`game-${editingGame === 'new' ? 'new' : (editingGame?.id ?? 'closed')}`}
-            locked={locked}
             onClose={() => setEditingGame(null)}
             scoringRules={rules ?? []}
           />

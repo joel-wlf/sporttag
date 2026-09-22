@@ -25,7 +25,11 @@ function RouteGuard() {
   useEffect(() => {
     if (isLoading) return;
     if (!session && !inAuth && !inStation) router.replace('/join');
-    if (session && inAuth) router.replace('/');
+    // Nur eine echte Organisatorensitzung verlässt den Login-Screen
+    // automatisch; eine anonyme Stationssitzung soll dort ohne Schleife
+    // ein persönliches Konto anmelden können (siehe "Backoffice"-Link
+    // auf /join).
+    if (isOrganizer && inAuth) router.replace('/');
     // Das Backoffice ist ausschließlich für persönliche Organisatorenkonten;
     // eine anonyme Stationssitzung darf nicht hinein.
     if (inBackoffice && session && !isOrganizer) router.replace('/login');

@@ -2,9 +2,12 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { Screen } from '@/components/layout/Screen';
 import { ActionBar } from '@/components/station/ActionBar';
-import { pendingMatches, syncSummary } from '@/components/station/demoData';
 import { StatusBadge, type SyncStatus } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { friendlyErrorMessage } from '@/lib/api/errors';
 import { haptic } from '@/lib/haptics';
+import { teamName } from '@/lib/station/package';
+import { useStationSession } from '@/providers/StationSessionProvider';
 
 function Stat({ value, label }: { value: number; label: string }) {
   return (
@@ -15,9 +18,41 @@ function Stat({ value, label }: { value: number; label: string }) {
   );
 }
 
+const statusFor = (state: string, receiptStatus: string | null): SyncStatus => {
+  if (state !== 'received') return 'pending';
+  if (receiptStatus === 'accepted') return 'synced';
+  return 'review';
+};
+
 export default function CockpitSyncScreen() {
-  const [syncedAt, setSyncedAt] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
+  const { pkg, eventId, syncCounts, syncOutcome, lastSyncedAt, syncNow, submitManifest } = useStationSession();
+  const [manifestState, setManifestState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
+  const [manifestMessage, setManifestMessage] = useState<string | null>(null);
+
+  const runManifest = async () => {
+    haptic('medium');
+    setManifestState('sending');
+    setManifestMessage(null);
+    try {
+      const result = await submitManifest();
+      setManifestState('done');
+      setManifestMessage(
+        result.complete
+          ? 'Abschluss vollständig gemeldet.'
+          : `Es fehlen noch ${result.missing_sequences.length} Abgabe(n) oder Inhalte stimmen nicht überein.`,
+      );
+    } catch (err) {
+      setManifestState('error');
+      setManifestMessage(friendlyErrorMessage(err));
+    }
+  };
+
+  // Pending/Review-Matches aus dem lokalen Paket-Kontext für die Liste.
+  const pendingMatches = eventId && pkg
+    ? pkg.matches
+        .map((m) => ({ match: m, round: pkg.rounds.find((r) => r.id === m.round_id) }))
+        .filter(({ match }) => match.status === 'completed')
+    : [];
 
   return (
     <Screen
@@ -25,42 +60,41 @@ export default function CockpitSyncScreen() {
       footer={
         <ActionBar
           primary={{
-            label: syncing ? 'Synchronisiert …' : 'Jetzt synchronisieren',
-            isLoading: syncing,
+            label: syncOutcome === 'syncing' ? 'Synchronisiert …' : 'Jetzt synchronisieren',
+            isLoading: syncOutcome === 'syncing',
             onPress: () => {
               haptic('medium');
-              setSyncing(true);
-              setTimeout(() => {
-                setSyncing(false);
-                setSyncedAt(new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }));
-              }, 900);
+              void syncNow();
             },
           }}
         />
       }
     >
       <View className="flex-row gap-2">
-        <Stat label="Gesichert" value={syncSummary.saved} />
-        <Stat label="Ausstehend" value={syncSummary.pending} />
-        <Stat label="Übertragen" value={syncSummary.synced} />
+        <Stat label="Ausstehend" value={syncCounts.pending + syncCounts.sending} />
+        <Stat label="Klärung" value={syncCounts.review} />
+        <Stat label="Übertragen" value={syncCounts.synced} />
       </View>
+
+      {syncOutcome === 'offline' ? (
+        <Text className="text-sm font-semibold text-warning">Kein Netz — Ergebnisse bleiben gesichert.</Text>
+      ) : syncOutcome === 'unauthorized' ? (
+        <Text className="text-sm font-semibold text-danger">
+          Gerätezugang ungültig. Bitte erneut über den Veranstaltungscode beitreten; nichts wurde gelöscht.
+        </Text>
+      ) : null}
 
       {pendingMatches.length > 0 ? (
         <View className="gap-1">
-          {pendingMatches.map((match) => (
-            <View
-              className="flex-row items-center gap-3 rounded-control border border-line bg-surface px-3 py-3"
-              key={match.id}
-            >
+          {pendingMatches.map(({ match, round }) => (
+            <View className="flex-row items-center gap-3 rounded-control border border-line bg-surface px-3 py-3" key={match.id}>
               <View className="flex-1 gap-0.5">
                 <Text className="text-sm font-bold text-ink">
-                  {match.teams.map((t) => t.name).join(' – ')}
+                  {match.participants.map((p) => (pkg ? teamName(pkg, p.team_id) : '')).join(' – ')}
                 </Text>
-                <Text className="text-xs text-subtle">
-                  {match.time} · {match.game}
-                </Text>
+                <Text className="text-xs text-subtle">{round?.label}</Text>
               </View>
-              <StatusBadge status={match.syncStatus as SyncStatus} />
+              <StatusBadge status={statusFor('received', 'accepted')} />
             </View>
           ))}
         </View>
@@ -68,9 +102,28 @@ export default function CockpitSyncScreen() {
         <Text className="text-sm text-subtle">Alles übertragen.</Text>
       )}
 
-      {syncedAt ? (
-        <Text className="text-xs text-subtle">Zuletzt synchronisiert um {syncedAt}.</Text>
+      {lastSyncedAt ? (
+        <Text className="text-xs text-subtle">
+          Zuletzt synchronisiert um {new Date(lastSyncedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}.
+        </Text>
       ) : null}
+
+      <View className="gap-2 rounded-card border border-line bg-surface p-4">
+        <Text className="text-sm font-extrabold text-ink">Abschluss dieses Geräts</Text>
+        <Text className="text-xs leading-5 text-subtle">
+          Meldet dem Backoffice, dass alle bisherigen Ergebnisse dieses Geräts vollständig und unverändert
+          angekommen sind — der garantierte Mindestweg, auch wenn zwischendurch kein Internet verfügbar war.
+        </Text>
+        <Button
+          isLoading={manifestState === 'sending'}
+          label="Abschluss melden"
+          onPress={() => void runManifest()}
+          variant="outline"
+        />
+        {manifestMessage ? (
+          <Text className={manifestState === 'error' ? 'text-xs text-danger' : 'text-xs text-subtle'}>{manifestMessage}</Text>
+        ) : null}
+      </View>
     </Screen>
   );
 }

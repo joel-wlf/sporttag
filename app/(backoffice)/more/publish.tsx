@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { RequireEvent } from '@/components/backoffice/RequireEvent';
 import { Header } from '@/components/layout/Header';
 import { Screen } from '@/components/layout/Screen';
@@ -22,6 +22,7 @@ function PublishContent() {
   const publish = usePublishEvent(eventId as string);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [publishedCode, setPublishedCode] = useState<string | null>(null);
 
   const errors = readiness?.filter((issue) => issue.severity === 'error') ?? [];
   const warnings = readiness?.filter((issue) => issue.severity === 'warning') ?? [];
@@ -30,9 +31,9 @@ function PublishContent() {
   const handlePublish = async () => {
     setError(null);
     try {
-      await publish.mutateAsync();
+      const result = await publish.mutateAsync();
+      setPublishedCode(result.accessCode);
       setConfirmOpen(false);
-      router.push('/more/overview');
     } catch (err) {
       setError(friendlyErrorMessage(err));
     }
@@ -46,7 +47,23 @@ function PublishContent() {
         title="Freigabe & Veröffentlichung"
       />
 
-      {alreadyPublished ? (
+      {publishedCode ? (
+        <Card className="gap-4">
+          <CardHeader>
+            <CardTitle>Veröffentlicht</CardTitle>
+            <CardDescription>
+              Stationsgeräte treten mit diesem Code bei. Er wird nur jetzt angezeigt.
+            </CardDescription>
+          </CardHeader>
+          <View className="gap-2 rounded-2xl border border-primary bg-primary-soft px-4 py-4">
+            <Text className="text-[11px] font-extrabold tracking-[0.7px] text-primary">
+              VERANSTALTUNGSCODE – JETZT NOTIEREN, WIRD NICHT ERNEUT ANGEZEIGT
+            </Text>
+            <Text className="text-[32px] font-black tracking-[4px] text-ink">{publishedCode}</Text>
+          </View>
+          <Button className="self-start" label="Weiter zur Übersicht" onPress={() => router.push('/more/overview')} />
+        </Card>
+      ) : alreadyPublished ? (
         <Card>
           <CardHeader>
             <CardTitle>Bereits veröffentlicht</CardTitle>

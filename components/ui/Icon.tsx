@@ -36,7 +36,11 @@ export type IconName =
   | 'users'
   | 'flag'
   | 'trophy'
-  | 'wifi-off';
+  | 'wifi-off'
+  | 'edit'
+  | 'trash'
+  | 'bell'
+  | 'bell-off';
 
 type ShapeProps = {
   stroke: string;
@@ -247,6 +251,35 @@ const shapes: Record<IconName, (p: ShapeProps) => React.ReactNode> = {
       <Path d="M15.4 13.8a9.8 9.8 0 0 0-1.4-1.2" {...p} />
       <Path d="M11.5 16.4a3.9 3.9 0 0 1 2 .6" {...p} />
       <Circle cx="12" cy="19.5" r="0.9" fill={p.stroke} {...p} />
+    </>
+  ),
+  edit: (p) => (
+    <>
+      <Path d="M4 20h4.2L18.8 9.4a2.2 2.2 0 0 0 0-3.1l-1.1-1.1a2.2 2.2 0 0 0-3.1 0L4 15.8Z" {...p} />
+      <Line x1="13.2" y1="6.2" x2="17.8" y2="10.8" {...p} />
+    </>
+  ),
+  trash: (p) => (
+    <>
+      <Line x1="4" y1="7" x2="20" y2="7" {...p} />
+      <Path d="M6.5 7V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v2" {...p} />
+      <Path d="M18.5 7 17.7 19.5a2 2 0 0 1-2 1.9H8.3a2 2 0 0 1-2-1.9L5.5 7Z" {...p} />
+      <Line x1="10" y1="11" x2="10" y2="16.5" {...p} />
+      <Line x1="14" y1="11" x2="14" y2="16.5" {...p} />
+    </>
+  ),
+  bell: (p) => (
+    <>
+      <Path d="M6 10.5a6 6 0 0 1 12 0v4l2 3H4l2-3Z" {...p} />
+      <Path d="M9.5 20a2.5 2.5 0 0 0 5 0" {...p} />
+    </>
+  ),
+  'bell-off': (p) => (
+    <>
+      <Path d="M7.5 7.2A6 6 0 0 1 18 10.5v4l2 3h-6" {...p} />
+      <Path d="M6 10.5v4l-2 3h9" {...p} />
+      <Path d="M9.5 20a2.5 2.5 0 0 0 5 0" {...p} />
+      <Line x1="3.5" y1="3.5" x2="20.5" y2="20.5" {...p} />
     </>
   ),
 };

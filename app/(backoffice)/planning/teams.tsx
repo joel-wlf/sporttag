@@ -5,19 +5,38 @@ import { QuickTeamsModal } from '@/components/backoffice/planning/QuickTeamsModa
 import { TeamFormModal } from '@/components/backoffice/planning/TeamFormModal';
 import { Header } from '@/components/layout/Header';
 import { Screen } from '@/components/layout/Screen';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { DataTable, DataTableText, EditableCell, RowActionButton, RowActions } from '@/components/ui/DataTable';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ListRow } from '@/components/ui/ListRow';
-import { type TeamRow, useTeams } from '@/lib/api/teams';
+import { useDesktop } from '@/components/ui/useDesktop';
+import { confirmAsync } from '@/lib/confirm';
+import { friendlyErrorMessage } from '@/lib/api/errors';
+import { type TeamRow, useDeleteTeam, useTeams, useUpsertTeam } from '@/lib/api/teams';
 import { useActiveEvent } from '@/providers/ActiveEventProvider';
 
 function TeamsContent() {
   const { eventId, event } = useActiveEvent();
   const { data: teams } = useTeams(eventId);
+  const upsert = useUpsertTeam(eventId ?? '');
+  const remove = useDeleteTeam(eventId ?? '');
   const [editing, setEditing] = useState<TeamRow | 'new' | null>(null);
   const [quickOpen, setQuickOpen] = useState(false);
+  const [tableError, setTableError] = useState<string | null>(null);
   const locked = event?.status !== 'draft';
+  const desktop = useDesktop();
+
+  const handleDelete = async (team: TeamRow) => {
+    if (!(await confirmAsync(`„${team.name}“ wirklich löschen?`))) return;
+    setTableError(null);
+    try {
+      await remove.mutateAsync(team.id);
+    } catch (err) {
+      setTableError(friendlyErrorMessage(err));
+    }
+  };
 
   return (
     <Screen>
@@ -43,6 +62,60 @@ function TeamsContent() {
             title="Noch keine Teams"
           />
         </Card>
+      ) : desktop ? (
+        <Card className="overflow-hidden p-0">
+          <DataTable
+            columns={[
+              {
+                key: 'number',
+                header: 'Nr.',
+                width: 72,
+                render: (t) => (
+                  <EditableCell
+                    numeric
+                    onCommit={(v) => upsert.mutate({ id: t.id, name: t.name, number: v.trim() ? Number(v) : null })}
+                    subtle
+                    value={t.number ? String(t.number) : ''}
+                  />
+                ),
+              },
+              {
+                key: 'name',
+                header: 'Name',
+                flex: 2,
+                render: (t) => (
+                  <EditableCell onCommit={(v) => v.trim() && upsert.mutate({ id: t.id, name: v.trim() })} value={t.name} />
+                ),
+              },
+              {
+                key: 'participants',
+                header: 'Teilnehmende',
+                flex: 1,
+                render: (t) => (
+                  <EditableCell
+                    numeric
+                    onCommit={(v) => upsert.mutate({ id: t.id, name: t.name, participant_count: v.trim() ? Number(v) : null })}
+                    subtle
+                    value={t.participant_count ? String(t.participant_count) : ''}
+                  />
+                ),
+              },
+              {
+                key: 'actions',
+                header: '',
+                width: 80,
+                render: (t) => (
+                  <RowActions>
+                    <RowActionButton accessibilityLabel="Team bearbeiten" icon="edit" onPress={() => setEditing(t)} />
+                    <RowActionButton accessibilityLabel="Team löschen" icon="trash" onPress={() => handleDelete(t)} tone="danger" />
+                  </RowActions>
+                ),
+              },
+            ]}
+            data={teams}
+            keyExtractor={(t) => t.id}
+          />
+        </Card>
       ) : (
         <Card>
           <View className="gap-1">
@@ -59,6 +132,7 @@ function TeamsContent() {
           </View>
         </Card>
       )}
+      {tableError ? <Badge tone="danger">{tableError}</Badge> : null}
 
       {eventId ? (
         <>

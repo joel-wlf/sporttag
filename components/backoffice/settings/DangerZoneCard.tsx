@@ -4,18 +4,23 @@ import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/Ca
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Field } from '@/components/ui/Input';
 import { friendlyErrorMessage } from '@/lib/api/errors';
-import { useDeleteDraftEvent } from '@/lib/api/events';
+import { useDeleteEvent } from '@/lib/api/events';
 import { useActiveEvent } from '@/providers/ActiveEventProvider';
 
-export function DangerZoneCard({ eventId }: { eventId: string }) {
+export function DangerZoneCard({ eventId, eventName }: { eventId: string; eventName: string }) {
   const router = useRouter();
   const { setActiveEventId } = useActiveEvent();
-  const deleteEvent = useDeleteDraftEvent();
+  const deleteEvent = useDeleteEvent();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmName, setConfirmName] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  const nameMatches = confirmName.trim() === eventName;
+
   const handleDelete = async () => {
+    if (!nameMatches) return;
     setError(null);
     try {
       await deleteEvent.mutateAsync(eventId);
@@ -30,22 +35,35 @@ export function DangerZoneCard({ eventId }: { eventId: string }) {
   return (
     <Card className="gap-4" variant="muted">
       <CardHeader>
-        <CardTitle>Entwurf löschen</CardTitle>
+        <CardTitle>Veranstaltung endgültig löschen</CardTitle>
         <CardDescription>
-          Nur solange die Veranstaltung ein Entwurf ist und keine Ergebnisse vorliegen. Danach unwiderruflich.
+          Entfernt die Veranstaltung samt aller Teams, Stationen, Spiele, Zeitpläne, Ergebnisse und Gerätezugänge –
+          unabhängig vom Status. Das kann nicht rückgängig gemacht werden.
         </CardDescription>
       </CardHeader>
-      <Button className="self-start" label="Entwurf endgültig löschen" onPress={() => setConfirmOpen(true)} variant="danger" />
+      <Button
+        className="self-start"
+        label="Veranstaltung endgültig löschen"
+        onPress={() => {
+          setConfirmName('');
+          setConfirmOpen(true);
+        }}
+        variant="danger"
+      />
       {error ? <Badge tone="danger">{error}</Badge> : null}
       <ConfirmDialog
         confirmLabel="Endgültig löschen"
-        description="Alle Teams, Stationen, Spiele und Zeitpläne dieser Veranstaltung werden entfernt. Das kann nicht rückgängig gemacht werden."
+        confirmVariant="danger"
+        description={`Alle Daten von „${eventName}“ werden unwiderruflich gelöscht. Zum Bestätigen den Namen der Veranstaltung eingeben.`}
+        isConfirmDisabled={!nameMatches}
         isLoading={deleteEvent.isPending}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={handleDelete}
-        title="Entwurf endgültig löschen?"
+        title="Veranstaltung endgültig löschen?"
         visible={confirmOpen}
-      />
+      >
+        <Field autoCapitalize="none" label={`Name eingeben: „${eventName}“`} onChangeText={setConfirmName} value={confirmName} />
+      </ConfirmDialog>
     </Card>
   );
 }

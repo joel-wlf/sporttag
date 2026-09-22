@@ -12,13 +12,11 @@ export function EventGameFormModal({
   eventId,
   game,
   scoringRules,
-  locked,
   onClose,
 }: {
   eventId: string;
   game: EventGameRow | 'new' | null;
   scoringRules: ScoringRuleRow[];
-  locked: boolean;
   onClose: () => void;
 }) {
   const upsert = useUpsertEventGame(eventId);
@@ -84,70 +82,66 @@ export function EventGameFormModal({
       error={error}
       isSubmitting={upsert.isPending}
       onClose={onClose}
-      onSubmit={locked ? undefined : handleSubmit}
+      onSubmit={handleSubmit}
       secondaryAction={
-        game && game !== 'new' && !locked ? (
+        game && game !== 'new' ? (
           <Button isLoading={remove.isPending} label="Löschen" onPress={handleDelete} variant="danger" />
         ) : undefined
       }
       title={game === 'new' ? 'Neues Spiel' : 'Spiel bearbeiten'}
       visible={game !== null}
     >
-      <Field editable={!locked} label="Name" onChangeText={setName} placeholder="Fähnchen klauen" value={name} />
-      <Field editable={!locked} label="Regeln" multiline numberOfLines={3} onChangeText={setRules} value={rules} />
+      <Field label="Name" onChangeText={setName} placeholder="Fähnchen klauen" value={name} />
+      <Field label="Regeln" multiline numberOfLines={3} onChangeText={setRules} value={rules} />
 
-      {!locked ? (
-        <>
-          <SegmentedChoice
-            label="Messung"
-            onChange={setMeasurementType}
-            options={[
-              { value: 'outcome', label: 'Ausgang (Sieg/Niederlage/Platz)' },
-              { value: 'number', label: 'Zahlwert (z. B. Meter, Treffer)' },
-            ]}
-            value={measurementType}
-          />
-          <SegmentedChoice
-            label="Vergleichsrichtung"
-            onChange={setComparisonDirection}
-            options={[
-              { value: 'higher', label: 'Höher ist besser' },
-              { value: 'lower', label: 'Niedriger ist besser' },
-            ]}
-            value={comparisonDirection}
-          />
-          <View className="flex-row gap-3">
-            <View className="flex-1">
-              <Field keyboardType="number-pad" label="Min. Teams" onChangeText={setMinTeams} value={minTeams} />
-            </View>
-            <View className="flex-1">
-              <Field keyboardType="number-pad" label="Max. Teams" onChangeText={setMaxTeams} value={maxTeams} />
-            </View>
-          </View>
+      <SegmentedChoice
+        label="Messung"
+        onChange={setMeasurementType}
+        options={[
+          { value: 'outcome', label: 'Ausgang (Sieg/Niederlage/Platz)' },
+          { value: 'number', label: 'Zahlwert (z. B. Meter, Treffer)' },
+        ]}
+        value={measurementType}
+      />
+      <SegmentedChoice
+        label="Vergleichsrichtung"
+        onChange={setComparisonDirection}
+        options={[
+          { value: 'higher', label: 'Höher ist besser' },
+          { value: 'lower', label: 'Niedriger ist besser' },
+        ]}
+        value={comparisonDirection}
+      />
+      <View className="flex-row gap-3">
+        <View className="flex-1">
+          <Field keyboardType="number-pad" label="Min. Teams" onChangeText={setMinTeams} value={minTeams} />
+        </View>
+        <View className="flex-1">
+          <Field keyboardType="number-pad" label="Max. Teams" onChangeText={setMaxTeams} value={maxTeams} />
+        </View>
+      </View>
+      <Choice
+        description="Gleichstand ist bei diesem Spiel erlaubt."
+        label="Unentschieden zulassen"
+        onPress={() => setAllowTies((v) => !v)}
+        selected={allowTies}
+      />
+      <View className="gap-2">
+        <Choice
+          description="Verwendet die Standard-Wertungsregel der Veranstaltung."
+          label="Standardregel verwenden"
+          onPress={() => setScoringRuleId(null)}
+          selected={scoringRuleId === null}
+        />
+        {scoringRules.map((rule) => (
           <Choice
-            description="Gleichstand ist bei diesem Spiel erlaubt."
-            label="Unentschieden zulassen"
-            onPress={() => setAllowTies((v) => !v)}
-            selected={allowTies}
+            key={rule.id}
+            label={rule.name}
+            onPress={() => setScoringRuleId(rule.id)}
+            selected={scoringRuleId === rule.id}
           />
-          <View className="gap-2">
-            <Choice
-              description="Verwendet die Standard-Wertungsregel der Veranstaltung."
-              label="Standardregel verwenden"
-              onPress={() => setScoringRuleId(null)}
-              selected={scoringRuleId === null}
-            />
-            {scoringRules.map((rule) => (
-              <Choice
-                key={rule.id}
-                label={rule.name}
-                onPress={() => setScoringRuleId(rule.id)}
-                selected={scoringRuleId === rule.id}
-              />
-            ))}
-          </View>
-        </>
-      ) : null}
+        ))}
+      </View>
     </FormSheet>
   );
 }

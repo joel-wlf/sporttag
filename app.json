@@ -10,7 +10,9 @@
     "plugins": [
       "expo-router",
       "@react-native-community/datetimepicker",
-      "@maplibre/maplibre-react-native"
+      "@maplibre/maplibre-react-native",
+      "expo-sqlite",
+      "@bacons/apple-targets"
     ],
     "experiments": {
       "typedRoutes": true
@@ -18,7 +20,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.example.sporttag",
-      "icon": "./assets/branding/app-icon/ios/Sporttag.icon"
+      "icon": "./assets/branding/app-icon/ios/Sporttag.icon",
+      "infoPlist": {
+        "NSSupportsLiveActivities": true
+      }
     },
     "android": {
       "package": "com.example.sporttag",

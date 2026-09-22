@@ -19,6 +19,7 @@ export function SatelliteMap({
   onPinPress,
   onMapPress,
   height = 420,
+  fitToPins = false,
 }: SatelliteMapProps) {
   const cameraRef = useRef<CameraRef>(null);
 
@@ -28,10 +29,26 @@ export function SatelliteMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by value, not object reference, to avoid re-fitting the camera on unrelated re-renders
     [key],
   );
+  const pinKey = fitToPins ? pins.map((p) => p.coordinate.join(',')).sort().join(';') : '';
   const cameraBounds = useMemo<[number, number, number, number] | undefined>(
-    () => (bounds ? [bounds.west, bounds.south, bounds.east, bounds.north] : undefined),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
-    [key],
+    () => {
+      const lngs: number[] = [];
+      const lats: number[] = [];
+      if (bounds) {
+        lngs.push(bounds.west, bounds.east);
+        lats.push(bounds.south, bounds.north);
+      }
+      if (fitToPins) {
+        for (const pin of pins) {
+          lngs.push(pin.coordinate[0]);
+          lats.push(pin.coordinate[1]);
+        }
+      }
+      if (lngs.length === 0) return undefined;
+      return [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by value (bounds + Pin-Koordinaten)
+    [key, pinKey],
   );
 
   const cameraStop = focus
@@ -71,7 +88,13 @@ export function SatelliteMap({
             lngLat={pin.coordinate}
             onPress={onPinPress ? () => onPinPress(pin.id) : undefined}
           >
-            <PinMarker label={pin.label} selected={pin.selected} />
+            <PinMarker
+              badge={pin.badge}
+              color={pin.color}
+              label={pin.label}
+              scoreLabel={pin.scoreLabel}
+              selected={pin.selected}
+            />
           </Marker>
         ))}
       </Map>
