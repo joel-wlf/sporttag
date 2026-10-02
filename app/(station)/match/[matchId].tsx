@@ -5,6 +5,7 @@ import { Screen } from '@/components/layout/Screen';
 import { ActionBar } from '@/components/station/ActionBar';
 import { ArrivalStrip, type ArrivalRow } from '@/components/station/ArrivalStrip';
 import { ContextBar } from '@/components/station/ContextBar';
+import { RosterSheet, type RosterTeam } from '@/components/station/RosterSheet';
 import { ToolStrip } from '@/components/station/Tools';
 import { StatusBadge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -13,7 +14,7 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { useTokens } from '@/components/ui/theme';
 import { friendlyErrorMessage } from '@/lib/api/errors';
 import { haptic } from '@/lib/haptics';
-import { teamName } from '@/lib/station/package';
+import { teamName, teamRoster } from '@/lib/station/package';
 import { buildNumberPayload, buildOutcomePayload, buildPlacementPayload } from '@/lib/station/scoring';
 import type { PackageGame, PackageMatch, ResultPayloadValue } from '@/lib/station/types';
 import { useStationSession } from '@/providers/StationSessionProvider';
@@ -44,11 +45,13 @@ function MatchInfo({
   teamCount,
   round,
   onRules,
+  onRoster,
 }: {
   game: PackageGame;
   teamCount: number;
   round?: string;
   onRules: () => void;
+  onRoster?: () => void;
 }) {
   const tokens = useTokens();
   return (
@@ -67,14 +70,26 @@ function MatchInfo({
         {teamCount > 2 ? <InfoChip icon="users" label={`${teamCount} Teams`} /> : null}
         {game.materials ? <InfoChip icon="package" label={game.materials} /> : null}
       </View>
-      <Pressable
-        accessibilityRole="button"
-        className="flex-row items-center gap-1 self-start active:opacity-70"
-        onPress={onRules}
-      >
-        <Text className="text-sm font-bold text-primary">Regeln</Text>
-        <Icon color={tokens.primary} name="chevron-right" size={14} />
-      </Pressable>
+      <View className="flex-row flex-wrap gap-5">
+        <Pressable
+          accessibilityRole="button"
+          className="flex-row items-center gap-1 self-start active:opacity-70"
+          onPress={onRules}
+        >
+          <Text className="text-sm font-bold text-primary">Regeln</Text>
+          <Icon color={tokens.primary} name="chevron-right" size={14} />
+        </Pressable>
+        {onRoster ? (
+          <Pressable
+            accessibilityRole="button"
+            className="flex-row items-center gap-1 self-start active:opacity-70"
+            onPress={onRoster}
+          >
+            <Text className="text-sm font-bold text-primary">Namen</Text>
+            <Icon color={tokens.primary} name="chevron-right" size={14} />
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -287,6 +302,16 @@ export default function MatchResultScreen() {
     [match, pkg],
   );
 
+  const roster: RosterTeam[] = useMemo(
+    () =>
+      match && pkg
+        ? match.participants.map((p) => ({ id: p.id, name: teamName(pkg, p.team_id), players: teamRoster(pkg, p.team_id) }))
+        : [],
+    [match, pkg],
+  );
+  const hasRoster = roster.some((t) => t.players.length > 0);
+  const [rosterOpen, setRosterOpen] = useState(false);
+
   const existingValue = match
     ? pkg?.current_result_values.filter((v) => v.match_id === match.id && v.version === match.current_result_version)
     : [];
@@ -482,10 +507,12 @@ export default function MatchResultScreen() {
 
       <MatchInfo
         game={game}
+        onRoster={hasRoster ? () => setRosterOpen(true) : undefined}
         onRules={() => router.push({ pathname: '/cockpit/rules', params: { gameId: game.id } })}
         round={round?.label}
         teamCount={teams.length}
       />
+      <RosterSheet onClose={() => setRosterOpen(false)} teams={roster} visible={rosterOpen} />
 
       {existingValue && existingValue.length > 0 ? (
         <View className="gap-1 rounded-card border border-warning/40 bg-warning-soft p-3">

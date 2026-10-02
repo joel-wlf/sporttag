@@ -506,12 +506,14 @@ export type Database = {
       events: {
         Row: {
           active_map_id: string | null
+          assistance_phone: string | null
           break_minutes: number
           changeover_minutes: number
           created_at: string
           default_scoring_rule_id: string | null
           event_date: string
           id: string
+          medical_phone: string | null
           motto: string | null
           name: string
           ntfy_base_url: string | null
@@ -531,12 +533,14 @@ export type Database = {
         }
         Insert: {
           active_map_id?: string | null
+          assistance_phone?: string | null
           break_minutes?: number
           changeover_minutes?: number
           created_at?: string
           default_scoring_rule_id?: string | null
           event_date: string
           id?: string
+          medical_phone?: string | null
           motto?: string | null
           name: string
           ntfy_base_url?: string | null
@@ -556,12 +560,14 @@ export type Database = {
         }
         Update: {
           active_map_id?: string | null
+          assistance_phone?: string | null
           break_minutes?: number
           changeover_minutes?: number
           created_at?: string
           default_scoring_rule_id?: string | null
           event_date?: string
           id?: string
+          medical_phone?: string | null
           motto?: string | null
           name?: string
           ntfy_base_url?: string | null
@@ -739,9 +745,16 @@ export type Database = {
           {
             foreignKeyName: "match_live_states_event_id_match_id_fkey"
             columns: ["event_id", "match_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "matches"
             referencedColumns: ["event_id", "id"]
+          },
+          {
+            foreignKeyName: "match_live_states_event_id_match_id_fkey"
+            columns: ["event_id", "match_id"]
+            isOneToOne: false
+            referencedRelation: "result_points"
+            referencedColumns: ["event_id", "match_id"]
           },
           {
             foreignKeyName: "match_live_states_updated_by_device_id_fkey"
@@ -874,6 +887,99 @@ export type Database = {
             columns: ["event_id", "station_setup_id"]
             isOneToOne: false
             referencedRelation: "station_setups"
+            referencedColumns: ["event_id", "id"]
+          },
+        ]
+      }
+      player_attributes: {
+        Row: {
+          age: number | null
+          created_at: string
+          event_id: string
+          gender: string | null
+          notes: string | null
+          player_id: string
+          skill: number | null
+          updated_at: string
+        }
+        Insert: {
+          age?: number | null
+          created_at?: string
+          event_id: string
+          gender?: string | null
+          notes?: string | null
+          player_id: string
+          skill?: number | null
+          updated_at?: string
+        }
+        Update: {
+          age?: number | null
+          created_at?: string
+          event_id?: string
+          gender?: string | null
+          notes?: string | null
+          player_id?: string
+          skill?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_attributes_event_id_player_id_fkey"
+            columns: ["event_id", "player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["event_id", "id"]
+          },
+        ]
+      }
+      players: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          locked: boolean
+          name: string
+          team_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          locked?: boolean
+          name: string
+          team_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          locked?: boolean
+          name?: string
+          team_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "players_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "players_event_id_team_id_fkey"
+            columns: ["event_id", "team_id"]
+            isOneToOne: false
+            referencedRelation: "standings"
+            referencedColumns: ["event_id", "team_id"]
+          },
+          {
+            foreignKeyName: "players_event_id_team_id_fkey"
+            columns: ["event_id", "team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["event_id", "id"]
           },
         ]
@@ -1441,18 +1547,32 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "team_station_visits_event_id_participant_id_fkey"
-            columns: ["event_id", "participant_id"]
-            isOneToOne: true
-            referencedRelation: "match_participants"
+            foreignKeyName: "team_station_visits_event_id_match_id_fkey"
+            columns: ["event_id", "match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
             referencedColumns: ["event_id", "id"]
           },
           {
             foreignKeyName: "team_station_visits_event_id_match_id_fkey"
             columns: ["event_id", "match_id"]
             isOneToOne: false
-            referencedRelation: "matches"
+            referencedRelation: "result_points"
+            referencedColumns: ["event_id", "match_id"]
+          },
+          {
+            foreignKeyName: "team_station_visits_event_id_participant_id_fkey"
+            columns: ["event_id", "participant_id"]
+            isOneToOne: false
+            referencedRelation: "match_participants"
             referencedColumns: ["event_id", "id"]
+          },
+          {
+            foreignKeyName: "team_station_visits_event_id_team_id_fkey"
+            columns: ["event_id", "team_id"]
+            isOneToOne: false
+            referencedRelation: "standings"
+            referencedColumns: ["event_id", "team_id"]
           },
           {
             foreignKeyName: "team_station_visits_event_id_team_id_fkey"
@@ -1617,12 +1737,14 @@ export type Database = {
         }
         Returns: {
           active_map_id: string | null
+          assistance_phone: string | null
           break_minutes: number
           changeover_minutes: number
           created_at: string
           default_scoring_rule_id: string | null
           event_date: string
           id: string
+          medical_phone: string | null
           motto: string | null
           name: string
           ntfy_base_url: string | null
@@ -1677,6 +1799,7 @@ export type Database = {
         Args: { p_event_id: string; p_reason: string; p_request_ids: string[] }
         Returns: number
       }
+      get_event_map: { Args: { p_event_id: string }; Returns: Json }
       get_station_package: { Args: { p_event_id: string }; Returns: Json }
       list_event_organizers: {
         Args: { p_event_id: string }
@@ -1727,6 +1850,23 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      register_event_map: {
+        Args: {
+          p_asset_path: string
+          p_attribution?: string
+          p_content_hash: string
+          p_east: number
+          p_event_id: string
+          p_height_px: number
+          p_mime_type: string
+          p_north: number
+          p_source_label?: string
+          p_south: number
+          p_west: number
+          p_width_px: number
+        }
+        Returns: string
+      }
       report_device_state: {
         Args: {
           p_device_id: string
@@ -1769,12 +1909,14 @@ export type Database = {
         Args: { p_event_id: string; p_status: string }
         Returns: {
           active_map_id: string | null
+          assistance_phone: string | null
           break_minutes: number
           changeover_minutes: number
           created_at: string
           default_scoring_rule_id: string | null
           event_date: string
           id: string
+          medical_phone: string | null
           motto: string | null
           name: string
           ntfy_base_url: string | null
@@ -1798,6 +1940,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_player_teams: {
+        Args: { p_assignments: Json; p_event_id: string }
+        Returns: number
       }
       submit_device_manifest: {
         Args: {
@@ -1913,11 +2059,7 @@ export type Database = {
         }
       }
       withdraw_result: {
-        Args: {
-          p_event_id: string
-          p_match_id: string
-          p_reason: string
-        }
+        Args: { p_event_id: string; p_match_id: string; p_reason: string }
         Returns: {
           request_id: string
           result_version: number
