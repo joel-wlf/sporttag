@@ -22,7 +22,7 @@ export default function PrivacyScreen() {
           items={[
             'Kein Tracking, keine Werbung, keine Analyse- oder Absturzberichts-Dienste von Drittanbietern.',
             'Kein Zugriff auf den Standort Ihres Geräts, auf Kontakte, Fotos, Kamera oder Mikrofon.',
-            'Keine Teilnehmerverwaltung: Teams sind Gruppennamen, keine Personenprofile.',
+            'Teilnehmende werden nur mit dem Nötigsten geführt: Name und optionale Angaben zur Teameinteilung, keine Kontaktdaten.',
             'Stationsgeräte brauchen kein persönliches Konto. Nur Organisatoren melden sich mit E-Mail und Passwort an.',
             'Daten werden nicht verkauft und nicht für Werbezwecke weitergegeben.',
           ]}
@@ -53,6 +53,7 @@ export default function PrivacyScreen() {
             'E-Mail-Adresse und Passwort für die Anmeldung. Das Passwort wird vom Anmeldedienst nur als Hash gespeichert.',
             'Von Ihnen angelegte Veranstaltungsdaten: Name, Zeitraum, Teams, Spiele, Stationen mit festen Koordinaten, Zeitplan, Wertungsregeln, Hilfe-Rufnummern.',
             'Namen und Rollen von Betreuungspersonen, soweit Sie diese anlegen.',
+            'Teilnehmende: Name, Teamzugehörigkeit und optional Geschlecht, Alter, Spielstärke (Skala 1–6) und eine Notiz, die zur Teameinteilung dienen (auch per CSV-Import). Die Angaben legt die Veranstaltungsleitung an; Teilnehmende selbst nutzen die App nicht.',
           ]}
         />
         <Text className="text-[15px] font-bold text-ink">Stationsgeräte</Text>
@@ -66,7 +67,7 @@ export default function PrivacyScreen() {
         <Text className="text-[15px] font-bold text-ink">Auf dem Gerät gespeichert</Text>
         <LegalParagraph>
           Damit der Stationsbetrieb ohne Internet funktioniert, speichert die App das
-          Veranstaltungspaket (Plan, Teams, Regeln, Offline-Karte, Rufnummern) und noch nicht
+          Veranstaltungspaket (Plan, Teams, Teilnehmernamen, Regeln, Offline-Karte, Rufnummern) und noch nicht
           übertragene Ergebnisse in einer lokalen Datenbank. Diese Daten verlassen das Gerät nur
           über die Synchronisierung mit der Veranstaltung. „Gerät zurücksetzen“ löscht sie.
         </LegalParagraph>
@@ -127,9 +128,11 @@ export default function PrivacyScreen() {
 
       <LegalSection title="Kinder und Jugendliche">
         <LegalParagraph>
-          Die App richtet sich an Betreuende und Organisatoren, nicht an Kinder. Es werden keine
-          Teilnehmerprofile geführt; Gruppen erscheinen nur unter ihrem Teamnamen. Bitte legen Sie
-          keine personenbezogenen Daten von Minderjährigen als Teamnamen an.
+          Die App richtet sich an Betreuende und Organisatoren, nicht an Kinder. Teilnehmende, oft
+          Minderjährige, werden von der Veranstaltungsleitung erfasst. Legen Sie nur Daten an, die
+          für die Teameinteilung nötig sind, und holen Sie die erforderlichen Einwilligungen der
+          Sorgeberechtigten bzw. Anmeldungsgrundlagen ein. Notizen bitte ohne Gesundheitsdaten
+          halten. Stationsgeräte erhalten die Teilnehmernamen im Offline-Paket.
         </LegalParagraph>
       </LegalSection>
 
