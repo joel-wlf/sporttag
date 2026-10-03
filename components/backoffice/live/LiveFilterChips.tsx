@@ -1,15 +1,16 @@
 import { Pressable, Text, View } from 'react-native';
 import { useTokens } from '@/components/ui/theme';
-import { liveGroupOf, type LiveGroup, type StationLive } from '@/lib/live/derive';
+import { liveGroupLabel, liveGroupOf, type LiveGroup, type StationLive } from '@/lib/live/derive';
 
 export type LiveFilter = 'all' | LiveGroup;
 
+// Gleiche Wörter wie die Gruppenüberschriften der Liste.
 const chips: { key: LiveFilter; label: string }[] = [
   { key: 'all', label: 'Alle' },
-  { key: 'attention', label: 'Probleme' },
+  { key: 'attention', label: liveGroupLabel.attention },
   { key: 'running', label: 'Läuft' },
-  { key: 'ready', label: 'Bereit' },
-  { key: 'done', label: 'Fertig' },
+  { key: 'ready', label: liveGroupLabel.ready },
+  { key: 'done', label: liveGroupLabel.done },
 ];
 
 /** Filter und Kennzahlen zugleich: jede Zahl ist antippbar und filtert die Liste. */
@@ -30,6 +31,9 @@ export function LiveFilterChips({
       {chips.map((chip) => {
         const active = value === chip.key;
         const n = count(chip.key);
+        // Leere Gruppen nicht als Filter anbieten (wie in den Ergebnissen),
+        // außer sie sind gerade gewählt.
+        if (chip.key !== 'all' && n === 0 && !active) return null;
         const alarm = chip.key === 'attention' && n > 0;
         return (
           <Pressable

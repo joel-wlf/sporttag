@@ -31,8 +31,10 @@ export function StandingsTable({
   const header = (
     <View className="flex-row items-center gap-2">
       <Badge tone={final ? 'success' : 'warning'}>{final ? 'Endgültig' : 'Vorläufig'}</Badge>
-      <Text className="text-[12px] text-subtle">
-        {final ? 'Abschlussabgleich bestätigt' : 'Wird final, sobald der Abschlussabgleich bestätigt ist'}
+      <Text className="min-w-0 flex-1 text-[12px] text-subtle">
+        {final
+          ? 'Abschlussabgleich bestätigt'
+          : 'Wird final, sobald der Abschlussabgleich bestätigt ist'}
       </Text>
     </View>
   );
@@ -42,7 +44,9 @@ export function StandingsTable({
       <View className="gap-3">
         {header}
         <Card variant="muted">
-          <Text className="text-center text-[13px] text-subtle">Noch keine gewerteten Ergebnisse.</Text>
+          <Text className="text-center text-[13px] text-subtle">
+            Noch keine gewerteten Ergebnisse.
+          </Text>
         </Card>
       </View>
     );
@@ -55,9 +59,27 @@ export function StandingsTable({
         <Card className="overflow-hidden p-0">
           <DataTable
             columns={[
-              { key: 'rank', header: 'Platz', width: 64, render: (r: StandingsRow) => <DataTableText>{rankLabel(r.rank)}</DataTableText> },
-              { key: 'team', header: 'Team', flex: 2, render: (r: StandingsRow) => <DataTableText>{r.team_name}</DataTableText> },
-              { key: 'played', header: 'Spiele', width: 80, align: 'right', render: (r: StandingsRow) => <DataTableText subtle>{r.matches_played ?? 0}</DataTableText> },
+              {
+                key: 'rank',
+                header: 'Platz',
+                width: 64,
+                render: (r: StandingsRow) => <DataTableText>{rankLabel(r.rank)}</DataTableText>,
+              },
+              {
+                key: 'team',
+                header: 'Team',
+                flex: 2,
+                render: (r: StandingsRow) => <DataTableText>{r.team_name}</DataTableText>,
+              },
+              {
+                key: 'played',
+                header: 'Spiele',
+                width: 80,
+                align: 'right',
+                render: (r: StandingsRow) => (
+                  <DataTableText subtle>{r.matches_played ?? 0}</DataTableText>
+                ),
+              },
               ...(showWdl
                 ? [
                     {
@@ -65,11 +87,23 @@ export function StandingsTable({
                       header: 'S/U/N',
                       width: 90,
                       align: 'right' as const,
-                      render: (r: StandingsRow) => <DataTableText subtle>{`${r.wins ?? 0}/${r.draws ?? 0}/${r.losses ?? 0}`}</DataTableText>,
+                      render: (r: StandingsRow) => (
+                        <DataTableText
+                          subtle
+                        >{`${r.wins ?? 0}/${r.draws ?? 0}/${r.losses ?? 0}`}</DataTableText>
+                      ),
                     },
                   ]
                 : []),
-              { key: 'points', header: 'Punkte', width: 90, align: 'right', render: (r: StandingsRow) => <DataTableText>{formatPoints(r.table_points)}</DataTableText> },
+              {
+                key: 'points',
+                header: 'Punkte',
+                width: 90,
+                align: 'right',
+                render: (r: StandingsRow) => (
+                  <DataTableText>{formatPoints(r.table_points)}</DataTableText>
+                ),
+              },
             ]}
             data={rows}
             keyExtractor={(r) => r.team_id ?? ''}
@@ -87,10 +121,22 @@ export function StandingsTable({
         <View className="gap-1">
           {rows.map((r) => (
             <ListRow
+              accessibilityLabel={`${rankLabel(r.rank)} Platz, ${r.team_name ?? 'Team'}, ${formatPoints(r.table_points)} Punkte`}
               key={r.team_id}
+              // Der Platz steht vorn wie in jeder Rangliste, nicht klein im Untertitel.
+              leading={
+                <View className="h-9 w-9 items-center justify-center rounded-xl bg-surface-muted">
+                  <Text className="text-[15px] font-black text-ink">{r.rank ?? '–'}</Text>
+                </View>
+              }
               onPress={() => r.team_id && onSelectTeam(r.team_id)}
               showChevron
-              subtitle={`${rankLabel(r.rank)} Platz · ${r.matches_played ?? 0} Spiele`}
+              subtitle={[
+                `${r.matches_played ?? 0} ${r.matches_played === 1 ? 'Spiel' : 'Spiele'}`,
+                showWdl ? `${r.wins ?? 0} S · ${r.draws ?? 0} U · ${r.losses ?? 0} N` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
               title={r.team_name ?? 'Team'}
               value={`${formatPoints(r.table_points)} Pkt.`}
             />

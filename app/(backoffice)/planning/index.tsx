@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import { View } from 'react-native';
+import { PlanVersionNotice } from '@/components/backoffice/PlanVersionNotice';
 import { Header } from '@/components/layout/Header';
 import { Screen } from '@/components/layout/Screen';
 import { Card } from '@/components/ui/Card';
@@ -48,6 +49,7 @@ export default function PlanningHubScreen() {
         eyebrow="VERANSTALTUNG PLANEN"
         title="Planung"
       />
+      <PlanVersionNotice />
       <Card>
         <View className="gap-1">
           {steps.map((step) => (

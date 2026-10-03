@@ -14,10 +14,17 @@ export function useMyEvents() {
   return useQuery({
     queryKey: eventsKey,
     queryFn: async () => {
+      // RLS zeigt Organisatoren alle Mitgliedschaften ihrer Events (für die
+      // Organisatorenliste). Ohne Filter auf den eigenen Nutzer erschien ein
+      // Event mit zwei Organisatoren deshalb doppelt.
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth.user?.id;
+      if (!userId) return [];
       const { data, error } = await supabase
         .from('event_memberships')
         .select('events(*)')
         .eq('active', true)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return (data ?? [])
@@ -76,6 +83,8 @@ export function useUpdateEvent(eventId: string) {
           | 'venue_south'
           | 'venue_east'
           | 'venue_west'
+          | 'assistance_phone'
+          | 'medical_phone'
         >
       >,
     ) => {

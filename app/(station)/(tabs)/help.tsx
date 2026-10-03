@@ -1,17 +1,21 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Screen } from '@/components/layout/Screen';
+import { ContextBar } from '@/components/station/ContextBar';
 import { Badge } from '@/components/ui/Badge';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useTokens } from '@/components/ui/theme';
-import { callEmergency, emergencyNumber, type CallResult, type EmergencyKind } from '@/lib/emergency';
+import { callNumber, emergencyNumber, type CallResult, type EmergencyKind } from '@/lib/emergency';
+import { useStationSession } from '@/providers/StationSessionProvider';
 import { haptic, type HapticStyle } from '@/lib/haptics';
 
 type Status = { kind: EmergencyKind; result: CallResult | 'calling' };
 
 const statusText: Record<Status['result'], string> = {
   calling: 'Anruf wird gestartet …',
-  started: 'Anruf gestartet',
+  // Die App übergibt nur an das Telefon: iOS fragt nach, Android öffnet den
+  // Wähler. Ob wirklich angerufen wird, weiß die App nicht.
+  started: 'An Telefon übergeben – dort Anruf bestätigen',
   unavailable: 'Anruf nicht möglich',
   not_configured: 'Keine Nummer hinterlegt',
 };
@@ -57,23 +61,27 @@ function BigButton({
   );
 }
 
-export default function CockpitHelpScreen() {
+export default function HelpScreen() {
   const [status, setStatus] = useState<Status | null>(null);
+  const { pkg } = useStationSession();
+  const assistance = emergencyNumber(pkg?.event, 'assistance');
+  const medical = emergencyNumber(pkg?.event, 'medical');
 
   const trigger = async (kind: EmergencyKind) => {
     setStatus({ kind, result: 'calling' });
-    const result = await callEmergency(kind);
+    const result = await callNumber(kind === 'assistance' ? assistance : medical);
     setStatus({ kind, result });
   };
 
   return (
     <Screen density="compact">
+      <ContextBar subtitle="Tippen startet sofort den Anruf" title="Hilfe" />
       <View className="flex-1 justify-center gap-4">
         <BigButton
           hapticStyle="heavy"
           icon="headset"
           label="Assistenz"
-          number={emergencyNumber('assistance')}
+          number={assistance ?? 'Keine Nummer hinterlegt'}
           onPress={() => void trigger('assistance')}
           tone="primary"
         />
@@ -81,7 +89,7 @@ export default function CockpitHelpScreen() {
           hapticStyle="error"
           icon="medical"
           label="Medizinisch"
-          number={emergencyNumber('medical')}
+          number={medical ?? 'Keine Nummer hinterlegt'}
           onPress={() => void trigger('medical')}
           tone="danger"
         />
@@ -91,6 +99,9 @@ export default function CockpitHelpScreen() {
           <Badge tone={statusTone[status.result]}>{statusText[status.result]}</Badge>
         </View>
       ) : null}
+      <Text className="pb-2 text-center text-sm font-semibold text-subtle">
+        Bei einem echten Notfall zuerst 112 anrufen.
+      </Text>
     </Screen>
   );
 }

@@ -21,7 +21,7 @@ const events: NavigationItem = {
   href: '/',
   label: 'Event-Portfolio',
   tabLabel: 'Events',
-  icon: 'overview',
+  icon: 'planning',
 };
 
 const planningTeams: NavigationItem = {
@@ -69,7 +69,7 @@ const planning: NavigationItem = {
   href: '/planning',
   label: 'Planung',
   tabLabel: 'Planung',
-  icon: 'planning',
+  icon: 'overview',
   children: [planningTeams, planningGames, planningVenue, planningSchedule, planningStaff],
 };
 
@@ -102,7 +102,7 @@ const overview: NavigationItem = {
   href: '/more/overview',
   label: 'Übersicht',
   tabLabel: 'Übersicht',
-  icon: 'overview',
+  icon: 'flag',
 };
 
 const publish: NavigationItem = {
@@ -163,12 +163,13 @@ export const sidebarGroups: NavigationGroup[] = [
 /** In der Tab-Leiste sichtbare Hauptbereiche. */
 export const tabItems: NavigationItem[] = [events, planning, live, results, moreTab];
 
-/** Module, die auf Smartphones unter „Mehr“ gebündelt sind. */
-export const moreLinks: NavigationItem[] = [
-  overview,
-  publish,
-  devices,
-  settings,
-  gameTemplates,
-  account,
+/**
+ * Module, die auf Smartphones unter „Mehr“ gebündelt sind – in denselben
+ * Gruppen wie die Seitenleiste, damit Veranstaltungsmodule und Konto nicht
+ * gleichrangig in einer Liste stehen.
+ */
+export const moreGroups: NavigationGroup[] = [
+  { title: 'Veranstaltung', items: [overview, publish, devices, settings] },
+  { title: 'Bibliothek', items: [gameTemplates] },
+  { title: 'Konto', items: [account] },
 ];

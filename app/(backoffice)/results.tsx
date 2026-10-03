@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { RequireEvent } from '@/components/backoffice/RequireEvent';
-import { ResultCorrectionSheet } from '@/components/backoffice/results/ResultCorrectionSheet';
 import { ResultDetailSheet } from '@/components/backoffice/results/ResultDetailSheet';
-import { ResultFilters, type ResultFilterState } from '@/components/backoffice/results/ResultFilters';
+import {
+  ResultFilters,
+  type ResultFilterState,
+} from '@/components/backoffice/results/ResultFilters';
 import { ResultList } from '@/components/backoffice/results/ResultList';
 import { ResultStats } from '@/components/backoffice/results/ResultStats';
 import { StandingsBreakdownSheet } from '@/components/backoffice/results/StandingsBreakdownSheet';
@@ -14,10 +16,24 @@ import { Screen } from '@/components/layout/Screen';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useTokens } from '@/components/ui/theme';
+import { useDesktop } from '@/components/ui/useDesktop';
+import { ViewSwitch } from '@/components/ui/ViewSwitch';
 import { useEventGames } from '@/lib/api/games';
 import { useCurrentResultValues } from '@/lib/api/live';
-import { useResultPoints, useResultRevisions, useResultSubmissions, useResultsRealtime, useStandings } from '@/lib/api/results';
-import { useBlocks, useMatches, useMatchParticipants, useRounds, useStationSetups } from '@/lib/api/schedule';
+import {
+  useResultPoints,
+  useResultRevisions,
+  useResultSubmissions,
+  useResultsRealtime,
+  useStandings,
+} from '@/lib/api/results';
+import {
+  useBlocks,
+  useMatches,
+  useMatchParticipants,
+  useRounds,
+  useStationSetups,
+} from '@/lib/api/schedule';
 import { useStations } from '@/lib/api/stations';
 import { useTeams } from '@/lib/api/teams';
 import { buildResultRows, buildTeamBreakdown, filterResultRows } from '@/lib/results/derive';
@@ -32,6 +48,7 @@ const viewChips: { key: ResultsView; label: string }[] = [
 
 function ResultsContent() {
   const tokens = useTokens();
+  const desktop = useDesktop();
   const { eventId, event } = useActiveEvent();
   const { matchId: matchIdParam } = useLocalSearchParams<{ matchId?: string }>();
 
@@ -51,9 +68,13 @@ function ResultsContent() {
   useResultsRealtime(eventId);
 
   const [view, setView] = useState<ResultsView>('results');
-  const [filter, setFilter] = useState<ResultFilterState>({ status: 'all', stationId: 'all', teamId: 'all', roundId: 'all' });
+  const [filter, setFilter] = useState<ResultFilterState>({
+    status: 'all',
+    stationId: 'all',
+    teamId: 'all',
+    roundId: 'all',
+  });
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(matchIdParam ?? null);
-  const [correctingMatchId, setCorrectingMatchId] = useState<string | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 
   // Deep-Link aus dem Live-Modul: ?matchId=… öffnet direkt das Detail. Während
@@ -82,68 +103,113 @@ function ResultsContent() {
         submissions: submissions ?? [],
         currentResultValues: currentResultValues ?? [],
       }),
-    [matches, rounds, blocks, stationSetups, stations, matchParticipants, teams, eventGames, submissions, currentResultValues],
+    [
+      matches,
+      rounds,
+      blocks,
+      stationSetups,
+      stations,
+      matchParticipants,
+      teams,
+      eventGames,
+      submissions,
+      currentResultValues,
+    ],
   );
 
-  const visibleRows = useMemo(() => filterResultRows(rows, filter), [rows, filter]);
+  // In Ablaufreihenfolge: Runde, dann Station.
+  const visibleRows = useMemo(
+    () =>
+      filterResultRows(rows, filter).sort(
+        (a, b) =>
+          (a.round ? new Date(a.round.starts_at).getTime() : Infinity) -
+            (b.round ? new Date(b.round.starts_at).getTime() : Infinity) ||
+          (a.station?.name ?? '').localeCompare(b.station?.name ?? ''),
+      ),
+    [rows, filter],
+  );
   const selectedRow = rows.find((r) => r.match.id === selectedMatchId) ?? null;
-  const correctingRow = rows.find((r) => r.match.id === correctingMatchId) ?? null;
   const selectedTeam = (teams ?? []).find((t) => t.id === selectedTeamId) ?? null;
   const breakdown = useMemo(
     () => (selectedTeamId ? buildTeamBreakdown(selectedTeamId, resultPoints ?? [], rows) : []),
     [selectedTeamId, resultPoints, rows],
   );
 
-  const roundOptions = (rounds ?? [])
-    .filter((r) => r.kind === 'play')
-    .sort((a, b) => a.position - b.position)
-    .map((r) => ({ id: r.id, name: `Runde ${r.position}` }));
+  // Runden durchgehend zählen wie Live-Betrieb und Zeitplan („Runde 12 von 13“).
+  // `position` beginnt je Block neu – der Filter zeigte sonst dreimal „Runde 1“.
+  const playRounds = useMemo(
+    () =>
+      (rounds ?? [])
+        .filter((r) => r.kind === 'play')
+        .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()),
+    [rounds],
+  );
+  const roundNumberById = useMemo(
+    () => new Map(playRounds.map((r, i) => [r.id, i + 1])),
+    [playRounds],
+  );
+  const roundOptions = playRounds.map((r, i) => ({ id: r.id, name: `Runde ${i + 1}` }));
   const stationOptions = (stations ?? []).map((s) => ({ id: s.id, name: s.name }));
   const teamOptions = (teams ?? []).map((t) => ({ id: t.id, name: t.name }));
 
   return (
     <Screen>
       <Header
-        description="Match-Ergebnisliste, Abgabejournal, Revisionshistorie und Konfliktklärung — sowie die daraus berechnete Tabelle."
+        description="Ergebnisse prüfen, nachtragen, korrigieren oder zurückziehen. Die Tabelle rechnet mit."
         eyebrow="WERTUNG & KLÄRUNG"
         title="Ergebnisse & Tabelle"
       />
 
-      <View className="flex-row gap-2">
-        {viewChips.map((chip) => {
-          const active = view === chip.key;
-          return (
-            <Pressable
-              className={['rounded-full border px-4 py-2', active ? 'border-primary bg-primary' : 'border-line bg-surface'].join(' ')}
-              key={chip.key}
-              onPress={() => setView(chip.key)}
-            >
-              <Text className={['text-[13px] font-bold', active ? 'text-on-primary' : 'text-ink'].join(' ')}>{chip.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <ViewSwitch
+        accessibilityLabel="Ansicht"
+        onChange={setView}
+        options={viewChips.map((chip) => ({ value: chip.key, label: chip.label }))}
+        value={view}
+      />
 
       {isLoading ? (
         <ActivityIndicator color={tokens.primary} />
       ) : (matches ?? []).length === 0 ? (
         <Card>
-          <EmptyState description="Sobald Runden und Matches geplant sind, erscheinen hier Ergebnisse." icon="results" title="Noch keine Matches" />
+          <EmptyState
+            description="Sobald Runden und Matches geplant sind, erscheinen hier Ergebnisse."
+            icon="results"
+            title="Noch keine Matches"
+          />
         </Card>
       ) : view === 'results' ? (
         <View className="gap-4">
-          <ResultStats rows={rows} />
-          <ResultFilters onChange={setFilter} rounds={roundOptions} rows={rows} stations={stationOptions} teams={teamOptions} value={filter} />
+          {/* Auf dem iPhone doppelten die vier Kennzahlkarten die Filterchips
+              darunter und schoben die Liste unter den Falz. */}
+          {desktop ? <ResultStats rows={rows} /> : null}
+          <ResultFilters
+            onChange={setFilter}
+            rounds={roundOptions}
+            rows={rows}
+            stations={stationOptions}
+            teams={teamOptions}
+            value={filter}
+          />
           {visibleRows.length === 0 ? (
             <Card variant="muted">
-              <Text className="text-center text-[13px] text-subtle">Keine Matches in dieser Auswahl.</Text>
+              <Text className="text-center text-[13px] text-subtle">
+                Keine Matches in dieser Auswahl.
+              </Text>
             </Card>
           ) : (
-            <ResultList onSelect={(row) => setSelectedMatchId(row.match.id)} rows={visibleRows} />
+            <ResultList
+              onSelect={(row) => setSelectedMatchId(row.match.id)}
+              roundNumberById={roundNumberById}
+              rows={visibleRows}
+            />
           )}
         </View>
       ) : (
-        <StandingsTable final={Boolean(event?.reconciled_at)} onSelectTeam={setSelectedTeamId} rows={standings ?? []} />
+        <StandingsTable
+          final={Boolean(event?.reconciled_at)}
+          onSelectTeam={setSelectedTeamId}
+          rows={standings ?? []}
+        />
       )}
 
       {eventId ? (
@@ -151,18 +217,18 @@ function ResultsContent() {
           <ResultDetailSheet
             eventId={eventId}
             onClose={() => setSelectedMatchId(null)}
-            onCorrect={() => {
-              setCorrectingMatchId(selectedRow?.match.id ?? null);
-              setSelectedMatchId(null);
-            }}
+            planVersion={event?.plan_version}
             revisions={revisions ?? []}
             row={selectedRow}
             submissions={submissions ?? []}
           />
-          <ResultCorrectionSheet eventId={eventId} onClose={() => setCorrectingMatchId(null)} row={correctingRow} />
         </>
       ) : null}
-      <StandingsBreakdownSheet entries={breakdown} onClose={() => setSelectedTeamId(null)} teamName={selectedTeam?.name ?? null} />
+      <StandingsBreakdownSheet
+        entries={breakdown}
+        onClose={() => setSelectedTeamId(null)}
+        teamName={selectedTeam?.name ?? null}
+      />
     </Screen>
   );
 }

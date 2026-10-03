@@ -38,9 +38,7 @@ export type IconName =
   | 'trophy'
   | 'wifi-off'
   | 'edit'
-  | 'trash'
-  | 'bell'
-  | 'bell-off';
+  | 'trash';
 
 type ShapeProps = {
   stroke: string;
@@ -266,20 +264,6 @@ const shapes: Record<IconName, (p: ShapeProps) => React.ReactNode> = {
       <Path d="M18.5 7 17.7 19.5a2 2 0 0 1-2 1.9H8.3a2 2 0 0 1-2-1.9L5.5 7Z" {...p} />
       <Line x1="10" y1="11" x2="10" y2="16.5" {...p} />
       <Line x1="14" y1="11" x2="14" y2="16.5" {...p} />
-    </>
-  ),
-  bell: (p) => (
-    <>
-      <Path d="M6 10.5a6 6 0 0 1 12 0v4l2 3H4l2-3Z" {...p} />
-      <Path d="M9.5 20a2.5 2.5 0 0 0 5 0" {...p} />
-    </>
-  ),
-  'bell-off': (p) => (
-    <>
-      <Path d="M7.5 7.2A6 6 0 0 1 18 10.5v4l2 3h-6" {...p} />
-      <Path d="M6 10.5v4l-2 3h9" {...p} />
-      <Path d="M9.5 20a2.5 2.5 0 0 0 5 0" {...p} />
-      <Line x1="3.5" y1="3.5" x2="20.5" y2="20.5" {...p} />
     </>
   ),
 };

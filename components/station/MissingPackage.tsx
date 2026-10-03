@@ -4,6 +4,7 @@ import { Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { friendlyErrorMessage } from '@/lib/api/errors';
+import { resetToJoin } from '@/lib/station/navigation';
 import { useStationSession } from '@/providers/StationSessionProvider';
 
 export function MissingPackage({ title = 'Keine Daten' }: { title?: string }) {
@@ -22,16 +23,20 @@ export function MissingPackage({ title = 'Keine Daten' }: { title?: string }) {
 
   const rejoin = async () => {
     await leave();
-    router.replace('/join');
+    resetToJoin(router);
   };
 
   return (
     <EmptyState
       action={
         <View className="items-center gap-3">
-          {eventId ? <Button isLoading={loading} label="Paket erneut laden" onPress={() => void retry()} /> : null}
+          {eventId ? (
+            <Button isLoading={loading} label="Paket erneut laden" onPress={() => void retry()} />
+          ) : null}
           <Button label="Neu beitreten" onPress={() => void rejoin()} variant="outline" />
-          {error ? <Text className="text-center text-sm font-semibold text-danger">{error}</Text> : null}
+          {error ? (
+            <Text className="text-center text-sm font-semibold text-danger">{error}</Text>
+          ) : null}
         </View>
       }
       description={

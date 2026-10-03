@@ -26,13 +26,19 @@ export function ActionBar({
           className={['flex-1', secondary.className ?? ''].join(' ')}
         />
       ) : null}
+      {/* Neuer key je Layout: beim Wechsel zwischen einem und zwei Knöpfen
+          blieb sonst die alte Vollbreite hängen und drückte den zweiten Knopf
+          zu einer leeren Pille zusammen. */}
       <Button
+        key={secondary ? 'split' : 'full'}
         size="xl"
         variant="primary"
         {...primary}
         {...icons}
         fullWidth={!secondary}
-        className={[secondary ? 'flex-1' : '', primary.className ?? ''].join(' ')}
+        // Die Hauptaktion bekommt zwei Drittel: lange Labels wie "Station
+        // übernehmen" brechen sonst in der halben Breite um.
+        className={[secondary ? 'flex-[2]' : '', primary.className ?? ''].join(' ')}
       />
     </View>
   );

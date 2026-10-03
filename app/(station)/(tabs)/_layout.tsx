@@ -4,21 +4,27 @@ import { Platform } from 'react-native';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useTokens } from '@/components/ui/theme';
 
+/**
+ * Eine Tab-Leiste für den ganzen Stationsbetrieb: Heute, Station, Karte,
+ * Hilfe. Früher lag der Tagesplan außerhalb der Cockpit-Tabs, und Hilfe
+ * (Notruf) war nur eingecheckt erreichbar. Sync ist kein Ort, sondern ein
+ * Zustand: er sitzt als Symbol oben rechts und öffnet ein Sheet.
+ */
 const nativeTabs = [
-  { name: 'index', label: 'Matches', sf: 'list.bullet.rectangle', md: 'checklist' },
-  { name: 'rules', label: 'Regeln', sf: 'doc.text', md: 'description' },
-  { name: 'sync', label: 'Sync', sf: 'arrow.triangle.2.circlepath', md: 'sync' },
+  { name: 'assignment', label: 'Heute', sf: 'calendar', md: 'today' },
+  { name: 'cockpit', label: 'Station', sf: 'flag.fill', md: 'flag' },
+  { name: 'map', label: 'Karte', sf: 'map.fill', md: 'map' },
   { name: 'help', label: 'Hilfe', sf: 'phone.fill', md: 'call' },
 ] as const;
 
 const webTabs: { name: string; label: string; icon: IconName }[] = [
-  { name: 'index', label: 'Matches', icon: 'results' },
-  { name: 'rules', label: 'Regeln', icon: 'package' },
-  { name: 'sync', label: 'Sync', icon: 'refresh' },
+  { name: 'assignment', label: 'Heute', icon: 'clock' },
+  { name: 'cockpit', label: 'Station', icon: 'flag' },
+  { name: 'map', label: 'Karte', icon: 'map-pin' },
   { name: 'help', label: 'Hilfe', icon: 'phone' },
 ];
 
-export default function CockpitLayout() {
+export default function StationTabsLayout() {
   const tokens = useTokens();
 
   if (Platform.OS === 'web') {

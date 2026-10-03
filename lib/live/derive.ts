@@ -58,13 +58,31 @@ export const liveStatusTone: Record<LiveStatus, LiveTone> = {
   idle: 'subtle',
 };
 
+/**
+ * Symbol je Status für Kartenpins und Legende: Status nie nur über Farbe
+ * (Rot/Gold und die beiden Grüntöne sind auf Satellitenbild kaum zu trennen).
+ */
+export const liveStatusIcon: Record<LiveStatus, 'alert' | 'users' | 'wifi-off' | 'play' | 'clock' | 'check' | 'minus'> = {
+  conflict: 'alert',
+  late: 'alert',
+  unstaffed: 'users',
+  stale: 'wifi-off',
+  running: 'play',
+  ready: 'clock',
+  done: 'check',
+  cancelled: 'minus',
+  idle: 'minus',
+};
+
 /** Wählt die aktuell laufende Runde, sonst die nächste, sonst die letzte. */
 export function pickCurrentRound<R extends { starts_at: string; ends_at: string; position: number }>(
   rounds: R[],
   now: Date,
 ): R | null {
   if (rounds.length === 0) return null;
-  const sorted = [...rounds].sort((a, b) => a.position - b.position);
+  // Nach Zeit, nicht nach `position`: die beginnt je Block neu, sodass nach der
+  // letzten Runde sonst eine Runde aus einem früheren Block als „letzte“ galt.
+  const sorted = [...rounds].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
   const nowMs = now.getTime();
   const running = sorted.find((r) => new Date(r.starts_at).getTime() <= nowMs && nowMs <= new Date(r.ends_at).getTime());
   if (running) return running;
@@ -89,9 +107,50 @@ export type StationLive = {
   scoreLabel: string | null;
 };
 
+/**
+ * Das Match, an dem eine Station tatsächlich steht — nicht das der geplanten
+ * Runde. Runden verschieben sich am Tag gegeneinander (datenkonzept.md 11.7):
+ * eine Station spielt noch R1, während der Plan schon R2 zeigt, eine andere
+ * ist schon bei R3. Reihenfolge: laufendes Match, sonst das früheste fällige
+ * ohne Ergebnis (die Station hängt), sonst das nächste offene (die Station
+ * ist voraus), sonst das letzte (alles erledigt).
+ */
+export function progressMatchForSetup(
+  setupId: string,
+  matches: MatchRow[],
+  rounds: RoundRow[],
+  liveStates: MatchLiveStateRow[],
+  now: Date,
+): { match: MatchRow; round: RoundRow } | null {
+  const own = matches
+    .filter((m) => m.station_setup_id === setupId)
+    .map((match) => ({ match, round: rounds.find((r) => r.id === match.round_id) }))
+    .filter((x): x is { match: MatchRow; round: RoundRow } => Boolean(x.round))
+    .sort((a, b) => new Date(a.round.starts_at).getTime() - new Date(b.round.starts_at).getTime());
+  if (own.length === 0) return null;
+  // Offen ist, was weder abgeschlossen noch abgesagt ist. Nicht über die
+  // Ergebnisversion: nach einem Rückzug ist sie > 0, das Match aber wieder
+  // offen und muss neu erfasst werden.
+  const open = own.filter(
+    (x) => x.match.status !== 'completed' && x.match.status !== 'cancelled',
+  );
+  const running = open.find(
+    (x) =>
+      x.match.status === 'in_progress' ||
+      liveStates.some((s) => s.match_id === x.match.id && Boolean(s.started_at)),
+  );
+  if (running) return running;
+  const overdue = open.find((x) => new Date(x.round.starts_at).getTime() <= now.getTime());
+  if (overdue) return overdue;
+  if (open.length > 0) return open[0];
+  return own[own.length - 1];
+}
+
 export function buildStationLive({
   stations,
   round,
+  rounds,
+  followProgress = false,
   blocks,
   stationSetups,
   matches,
@@ -107,6 +166,13 @@ export function buildStationLive({
 }: {
   stations: StationRow[];
   round: RoundRow | null;
+  /** Alle Runden; nötig, wenn `followProgress` gesetzt ist. */
+  rounds?: RoundRow[];
+  /**
+   * `true` (Ansicht „Jetzt“): je Station das tatsächlich anstehende Match
+   * statt des Matches der geplanten Runde. Beim Blättern bleibt die Planansicht.
+   */
+  followProgress?: boolean;
   blocks: BlockRow[];
   stationSetups: StationSetupRow[];
   matches: MatchRow[];
@@ -127,7 +193,14 @@ export function buildStationLive({
       ? (stationSetups.find((s) => s.block_id === block.id && s.station_id === station.id) ?? null)
       : null;
     const game = setup ? (games.find((g) => g.id === setup.event_game_id) ?? null) : null;
-    const match = round && setup ? (matches.find((m) => m.round_id === round.id && m.station_setup_id === setup.id) ?? null) : null;
+    const progress =
+      followProgress && setup && rounds ? progressMatchForSetup(setup.id, matches, rounds, liveStates, now) : null;
+    const rowRound = progress?.round ?? round;
+    const match = progress
+      ? progress.match
+      : round && setup
+        ? (matches.find((m) => m.round_id === round.id && m.station_setup_id === setup.id) ?? null)
+        : null;
     const participants = match
       ? matchParticipants.filter((p) => p.match_id === match.id).sort((a, b) => a.slot - b.slot)
       : [];
@@ -149,14 +222,14 @@ export function buildStationLive({
       checkins,
       device,
       submissions,
-      round,
+      round: rowRound,
       liveStarted: Boolean(liveState?.started_at),
       now,
     });
 
     return {
       station,
-      round,
+      round: rowRound,
       block,
       setup,
       game,
@@ -227,7 +300,9 @@ function deriveStatus({
   if (!setup || !round || !match) return 'idle';
   if (submissions.length > 0) return 'conflict';
   if (match?.status === 'cancelled') return 'cancelled';
-  if (match?.status === 'completed' || (match && match.current_result_version > 0)) return 'done';
+  // Nur abgeschlossen ist erledigt; nach einem Rückzug (Version > 0, Status
+  // wieder geplant) muss die Station neu erfassen.
+  if (match.status === 'completed') return 'done';
   if (liveStarted) return 'running';
   if (match?.status === 'in_progress') {
     if (device?.last_seen_at && now.getTime() - new Date(device.last_seen_at).getTime() > STALE_DEVICE_MS) return 'stale';
@@ -261,9 +336,11 @@ export function statusReason(row: StationLive, now: Date): string | null {
     case 'conflict':
       return 'Ergebnisabgabe widerspricht sich und muss geklärt werden';
     case 'late':
-      return row.round
-        ? `Runde läuft seit ${minutesSince(row.round.starts_at, now)} min, Match noch nicht gestartet`
-        : 'Match noch nicht gestartet';
+      if (!row.round) return 'Match noch nicht gestartet';
+      // Nach Rundenende nicht mehr „läuft seit …“: dort fehlt dann das Ergebnis.
+      return now.getTime() > new Date(row.round.ends_at).getTime()
+        ? `Runde seit ${minutesSince(row.round.ends_at, now)} min vorbei, Match nie gestartet`
+        : `Runde läuft seit ${minutesSince(row.round.starts_at, now)} min, Match noch nicht gestartet`;
     case 'unstaffed':
       return 'Noch niemand an dieser Station eingecheckt';
     case 'stale':
@@ -298,7 +375,7 @@ export const liveGroupOf: Record<LiveStatus, LiveGroup> = {
 };
 
 export const liveGroupLabel: Record<LiveGroup, string> = {
-  attention: 'Braucht Aufmerksamkeit',
+  attention: 'Achtung',
   running: 'Läuft gerade',
   ready: 'Bereit',
   done: 'Fertig',

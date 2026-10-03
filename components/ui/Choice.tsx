@@ -23,11 +23,15 @@ export function Choice({
         'flex-row items-center gap-3 rounded-2xl border px-4 py-3 active:opacity-80',
         selected ? 'border-primary bg-primary-soft' : 'border-line bg-surface',
       ].join(' ')}
-      onPress={onPress}
-      onPressIn={() => haptic('heavy')}
+      onPress={() => {
+        haptic('light');
+        onPress();
+      }}
     >
       <View className="flex-1 gap-0.5">
-        <Text className={['text-[14px] font-bold', selected ? 'text-primary' : 'text-ink'].join(' ')}>
+        <Text
+          className={['text-[14px] font-bold', selected ? 'text-primary' : 'text-ink'].join(' ')}
+        >
           {label}
         </Text>
         {description ? (

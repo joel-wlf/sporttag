@@ -4,6 +4,7 @@ import { RequireEvent } from '@/components/backoffice/RequireEvent';
 import { CopyTemplateModal } from '@/components/backoffice/planning/CopyTemplateModal';
 import { EventGameFormModal } from '@/components/backoffice/planning/EventGameFormModal';
 import { ScoringRuleFormModal } from '@/components/backoffice/planning/ScoringRuleFormModal';
+import { PlanVersionNotice } from '@/components/backoffice/PlanVersionNotice';
 import { Header } from '@/components/layout/Header';
 import { Screen } from '@/components/layout/Screen';
 import { Section } from '@/components/layout/Section';
@@ -44,7 +45,7 @@ function GamesContent() {
   const [error, setError] = useState<string | null>(null);
   const desktop = useDesktop();
 
-  const modeLabel = (mode: string) => (mode === 'win_draw_loss' ? 'Sieg/Unentschieden/Niederlage' : mode === 'placement' ? 'Platzierung' : 'Zahlwert');
+  const modeLabel = (mode: string) => (mode === 'win_draw_loss' ? 'Sieg/Unentschieden/Niederlage' : mode === 'placement' ? 'Platzierung' : 'Rohpunkte');
 
   const handleSetDefault = async (ruleId: string) => {
     setError(null);
@@ -82,6 +83,7 @@ function GamesContent() {
         eyebrow="PLANUNG"
         title="Spiele & Wertung"
       />
+      <PlanVersionNotice />
 
       <Section
         action={<Button label="Neue Regel" leftIcon="plus" onPress={() => setEditingRule('new')} size="sm" />}

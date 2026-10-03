@@ -70,7 +70,9 @@ export function ArrivalStrip({
   return (
     <View className="gap-2 rounded-card border border-line bg-surface p-4">
       <View className="flex-row items-center justify-between gap-2">
-        <Text className="text-2xs font-black tracking-[0.8px] text-subtle">GRUPPEN AN DER STATION</Text>
+        <Text className="text-2xs font-black tracking-[0.8px] text-subtle">
+          GRUPPEN AN DER STATION
+        </Text>
         <Text className="text-2xs font-bold text-subtle">
           {rows.length - openCount}/{rows.length} weiter
         </Text>
@@ -86,18 +88,30 @@ export function ArrivalStrip({
                 nimmt die Ankunft wieder zurück. */}
             <Pressable
               accessibilityHint={arrived && !released ? 'Nimmt die Ankunft zurück' : undefined}
-              accessibilityLabel={arrived && !released ? `Ankunft von ${row.teamName} zurücknehmen` : undefined}
+              accessibilityLabel={
+                arrived && !released ? `Ankunft von ${row.teamName} zurücknehmen` : undefined
+              }
               accessibilityRole={arrived && !released ? 'button' : undefined}
               className="min-w-0 flex-1 gap-0.5"
               disabled={!arrived || released || disabled}
               onPress={() => onUndoArrival(row.participantId)}
             >
               <View className="flex-row items-center gap-2">
-                <Text className={['text-sm font-extrabold', released ? 'text-subtle' : 'text-ink'].join(' ')} numberOfLines={1}>
+                <Text
+                  className={['text-sm font-extrabold', released ? 'text-subtle' : 'text-ink'].join(
+                    ' ',
+                  )}
+                  numberOfLines={1}
+                >
                   {row.teamName}
                 </Text>
                 {arrived && row.delayMs !== null ? (
-                  <Text className={['rounded-full px-2 py-0.5 text-2xs font-black', toneClass[tone]].join(' ')}>
+                  <Text
+                    className={[
+                      'rounded-full px-2 py-0.5 text-2xs font-black',
+                      toneClass[tone],
+                    ].join(' ')}
+                  >
                     {formatDelay(row.delayMs)}
                   </Text>
                 ) : null}
@@ -141,7 +155,9 @@ export function ArrivalStrip({
         );
       })}
 
-      {disabled && disabledHint ? <Text className="text-2xs text-warning">{disabledHint}</Text> : null}
+      {disabled && disabledHint ? (
+        <Text className="text-2xs text-warning">{disabledHint}</Text>
+      ) : null}
     </View>
   );
 }

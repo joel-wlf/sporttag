@@ -17,9 +17,33 @@ function backoffMs(attempt: number) {
   return base + Math.random() * 500;
 }
 
+/**
+ * Fehlertext aus Supabase-Fehlern. PostgREST liefert Fehler als schlichte
+ * Objekte mit `message`, nicht als `Error` — `String(error)` ergab bisher
+ * "[object Object]", wodurch weder "offline" noch ein widerrufener Zugang
+ * erkannt wurde.
+ */
+export function syncErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return String(error);
+}
+
 function isNetworkError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
-  return /network|fetch|timeout|failed to fetch/i.test(message);
+  return /network request failed|failed to fetch|fetch failed|networkerror|network error|timed? ?out|aborted|load failed/i.test(
+    syncErrorMessage(error),
+  );
+}
+
+function isAuthError(error: unknown) {
+  // "permission denied for function": Die Anfrage lief ohne gültige
+  // Gerätesitzung (nur mit dem öffentlichen Schlüssel), etwa nach verlorener
+  // anonymer Sitzung. Ohne diesen Fall erschien nie "Neu beitreten".
+  return /not authorized|authentication required|revoked|permission denied for function/i.test(
+    syncErrorMessage(error),
+  );
 }
 
 async function syncOneCheckin(eventId: string, requestId: string, deviceId: string) {
@@ -40,7 +64,8 @@ async function syncOneCheckin(eventId: string, requestId: string, deviceId: stri
   await store.markOutboxReceived(requestId, 'accepted');
 }
 
-async function syncOneResult(eventId: string, requestId: string, deviceId: string, accessId: string) {  const submissions = await store.loadResultSubmissions(eventId);
+async function syncOneResult(eventId: string, requestId: string, deviceId: string, accessId: string) {
+  const submissions = await store.loadResultSubmissions(eventId);
   const submission = submissions.find((s) => s.requestId === requestId);
   if (!submission) return;
   await store.markOutboxSending(requestId);
@@ -100,33 +125,62 @@ async function syncOneVisit(eventId: string, visit: LocalTeamVisit, deviceId: st
   await store.markTeamVisitSynced(visit.participantId, visit.updatedAt);
 }
 
-/** Leert die Outbox eines Events. Gibt zurück, wie es lief, ohne zu werfen. */
-export async function syncNow(eventId: string): Promise<SyncOutcome> {
+/**
+ * Leert die Outbox eines Events. Gibt zurück, wie es lief, ohne zu werfen.
+ *
+ * Ein vom Server abgelehnter Eintrag (z. B. Match inzwischen gelöscht) darf
+ * die übrigen nicht aufhalten: er bekommt Backoff und die Schleife läuft
+ * weiter. Nur fehlendes Netz oder ein ungültiger Gerätezugang brechen ab.
+ * `force` (manueller Sync) ignoriert den Backoff.
+ */
+export async function syncNow(eventId: string, options?: { force?: boolean }): Promise<SyncOutcome> {
   const device = await getDevice();
   const state = await store.getStationState(eventId);
   if (!state?.accessId) return 'unauthorized';
 
   const outbox = await store.loadOutbox(eventId);
-  const pending = outbox.filter((o) => o.state !== 'received');
+  const now = Date.now();
+  const pending = outbox.filter(
+    (o) =>
+      o.state !== 'received' &&
+      (options?.force || !o.nextAttemptAt || new Date(o.nextAttemptAt).getTime() <= now),
+  );
+  let hadError = outbox.some((o) => o.state !== 'received' && !pending.includes(o));
 
-  for (const entry of pending) {
-    try {
-      if (entry.kind === 'checkin') {
-        await syncOneCheckin(eventId, entry.requestId, device.id);
-      } else {
-        await syncOneResult(eventId, entry.requestId, device.id, state.accessId);
+  // Reihenfolge: Check-ins (Voraussetzung für alles andere), dann Live-Stände
+  // und Laufzettel, zuletzt Ergebnisse. Kam das Ergebnis zuerst an, setzte
+  // der Server Start = Ende, und der danach eintreffende Live-Start wurde am
+  // abgeschlossenen Match ignoriert — offline erfasste Matches hatten in der
+  // Zeitleiste die Dauer null.
+  const sendEntries = async (kind: 'checkin' | 'result'): Promise<SyncOutcome | null> => {
+    for (const entry of pending.filter((o) => o.kind === kind)) {
+      try {
+        if (entry.kind === 'checkin') {
+          await syncOneCheckin(eventId, entry.requestId, device.id);
+        } else {
+          await syncOneResult(eventId, entry.requestId, device.id, state.accessId!);
+        }
+      } catch (error) {
+        if (isNetworkError(error)) {
+          await store.markOutboxPending(entry.requestId);
+          return 'offline';
+        }
+        await store.markOutboxFailed(
+          entry.requestId,
+          syncErrorMessage(error),
+          new Date(Date.now() + backoffMs(entry.attemptCount)).toISOString(),
+        );
+        if (isAuthError(error)) return 'unauthorized';
+        hadError = true;
       }
-    } catch (error) {
-      if (isNetworkError(error)) return 'offline';
-      const message = error instanceof Error ? error.message : String(error);
-      const isAuthError = /not authorized|authentication required|revoked/i.test(message);
-      await store.markOutboxFailed(entry.requestId, message, new Date(Date.now() + backoffMs(entry.attemptCount)).toISOString());
-      if (isAuthError) return 'unauthorized';
-      return 'error';
     }
-  }
+    return null;
+  };
 
-  // Live-Zwischenstände erst nach den Check-ins: der Server verlangt einen
+  const checkinOutcome = await sendEntries('checkin');
+  if (checkinOutcome) return checkinOutcome;
+
+  // Live-Stände erst nach den Check-ins: der Server verlangt einen
   // passenden Check-in. Ein Fehlschlag (z. B. Check-in noch nicht übertragen)
   // lässt den Stand schmutzig; der nächste Sync versucht es erneut.
   const dirtyLive = await store.loadDirtyLiveStates(eventId);
@@ -135,8 +189,7 @@ export async function syncNow(eventId: string): Promise<SyncOutcome> {
       await syncOneLive(eventId, live, device.id, state.accessId);
     } catch (error) {
       if (isNetworkError(error)) return 'offline';
-      const message = error instanceof Error ? error.message : String(error);
-      if (/not authorized|authentication required|revoked/i.test(message)) return 'unauthorized';
+      if (isAuthError(error)) return 'unauthorized';
       // Live-Stände sind unkritisch: einen dauerhaft abgelehnten Stand (z. B.
       // Check-in passt nicht mehr) nicht endlos erneut versuchen. Die nächste
       // Eingabe setzt den Stand wieder schmutzig.
@@ -152,30 +205,71 @@ export async function syncNow(eventId: string): Promise<SyncOutcome> {
       await syncOneVisit(eventId, visit, device.id, state.accessId);
     } catch (error) {
       if (isNetworkError(error)) return 'offline';
-      const message = error instanceof Error ? error.message : String(error);
-      if (/not authorized|authentication required|revoked/i.test(message)) return 'unauthorized';
+      if (isAuthError(error)) return 'unauthorized';
       await store.markTeamVisitSynced(visit.participantId, visit.updatedAt);
     }
   }
 
-  await reportDeviceState(eventId, state);
-  return 'ok';
+  const resultOutcome = await sendEntries('result');
+  if (resultOutcome) return resultOutcome;
+
+  await refreshReviewStatuses(eventId);
+
+  // Der Heartbeat zeigt zugleich, ob der Server überhaupt erreichbar ist:
+  // ohne ihn meldete ein Gerät ohne offene Einträge offline "synchronisiert".
+  const heartbeat = await reportDeviceState(eventId, state);
+  if (heartbeat === 'offline' || heartbeat === 'unauthorized') return heartbeat;
+  return hadError ? 'error' : 'ok';
 }
 
-export async function reportDeviceState(eventId: string, state?: StationState | null) {
+/**
+ * Holt den aktuellen Serverstatus eigener Abgaben, die bei der Übertragung
+ * Klärung brauchten. Ohne diesen Abgleich blieb "Klärung nötig" am Gerät
+ * stehen, auch nachdem die Leitung die Abgabe längst übernommen hatte.
+ */
+async function refreshReviewStatuses(eventId: string) {
+  const outbox = await store.loadOutbox(eventId);
+  const open = outbox.filter(
+    (o) => o.kind === 'result' && o.state === 'received' && (o.receiptStatus === 'conflict' || o.receiptStatus === 'needs_review'),
+  );
+  if (open.length === 0) return;
+  try {
+    const { data, error } = await supabase
+      .from('result_submissions')
+      .select('request_id, status')
+      .in('request_id', open.map((o) => o.requestId));
+    if (error || !data) return;
+    for (const row of data) {
+      const entry = open.find((o) => o.requestId === row.request_id);
+      if (entry && row.status !== entry.receiptStatus) {
+        await store.updateReceiptStatus(row.request_id, row.status);
+      }
+    }
+  } catch {
+    // Informativ: der nächste Sync versucht es erneut.
+  }
+}
+
+export async function reportDeviceState(
+  eventId: string,
+  state?: StationState | null,
+): Promise<'ok' | 'offline' | 'unauthorized' | 'error'> {
   const device = await getDevice();
   const current = state ?? (await store.getStationState(eventId));
-  if (!current) return;
+  if (!current) return 'error';
   const pkg = await store.loadPackage(eventId);
+  // Heartbeat ist informativ; ein Fehlschlag darf die Outbox nicht blockieren.
   try {
-    await supabase.rpc('report_device_state', {
+    const { error } = await supabase.rpc('report_device_state', {
       p_event_id: eventId,
       p_device_id: device.id,
       p_plan_version: pkg?.event.plan_version ?? 1,
       p_last_sequence: current.nextSequence - 1,
     });
-  } catch {
-    // Heartbeat ist informativ; ein Fehlschlag darf die Outbox nicht blockieren.
+    if (!error) return 'ok';
+    return isNetworkError(error) ? 'offline' : isAuthError(error) ? 'unauthorized' : 'error';
+  } catch (error) {
+    return isNetworkError(error) ? 'offline' : isAuthError(error) ? 'unauthorized' : 'error';
   }
 }
 

@@ -1,3 +1,4 @@
+import type { IconName } from '@/components/ui/Icon';
 import type { VenueBounds } from '@/lib/api/events';
 
 /** [longitude, latitude], wie von MapLibre/Mapbox erwartet. */
@@ -12,6 +13,8 @@ export type MapPin = {
   selected?: boolean;
   /** Überschreibt die Standardfarbe des Pins, z. B. für Statusanzeigen. */
   color?: string;
+  /** Symbol im Pin statt der Stecknadel, z. B. für den Live-Status. */
+  icon?: IconName;
   /** Kurzes Badge oben rechts am Pin, z. B. „!“ für offene Klärung. */
   badge?: string;
   /** Kleiner Punktestand-Chip oberhalb des Pins, z. B. „12:8“, für die Live-Karte. */
@@ -20,7 +23,18 @@ export type MapPin = {
 
 export type MapFocus = { center: LngLat; zoom?: number };
 
+/** Lokal gespeichertes, georeferenziertes Kartenbild (Web-Mercator, nordorientiert). */
+export type OfflineMapImage = {
+  uri: string;
+  bounds: Bounds;
+  /** Zoomstufe, bei der das Bild 1:1 dargestellt wird; begrenzt das Hineinzoomen. */
+  nativeZoom: number;
+  attribution?: string | null;
+};
+
 export type SatelliteMapProps = {
+  /** Ersetzt die Online-Kacheln durch ein lokales Bild (nur nativ). */
+  offlineImage?: OfflineMapImage | null;
   /** Gelände-Rechteck; wird als Polygon eingezeichnet und für die Anfangsansicht genutzt. */
   bounds?: Bounds | null;
   /** Kartenmittelpunkt, falls kein `bounds` vorliegt. */

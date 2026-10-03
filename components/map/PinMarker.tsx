@@ -1,5 +1,5 @@
 import { Text, View } from 'react-native';
-import { Icon } from '@/components/ui/Icon';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { useTokens } from '@/components/ui/theme';
 
 export function PinMarker({
@@ -8,12 +8,14 @@ export function PinMarker({
   color,
   badge,
   scoreLabel,
+  icon = 'map-pin',
 }: {
   label?: string;
   selected?: boolean;
   color?: string;
   badge?: string;
   scoreLabel?: string;
+  icon?: IconName;
 }) {
   const tokens = useTokens();
   const bubbleColor = color ?? (selected ? tokens.accent : tokens.primary);
@@ -44,7 +46,7 @@ export function PinMarker({
             borderColor: tokens.surface,
           }}
         >
-          <Icon color={tokens.onPrimary} name="map-pin" size={selected ? 19 : 17} />
+          <Icon color={tokens.onPrimary} name={icon} size={selected ? 19 : 17} />
         </View>
         {badge ? (
           <View

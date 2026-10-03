@@ -1,5 +1,5 @@
 import { sha256 } from './identity';
-import type { PackageGame, PackageMatch, ResultPayload, ResultPayloadValue } from './types';
+import type { PackageGame, PackageMatch, ResultPayload, ResultPayloadValue, StationPackage } from './types';
 
 /**
  * Baut die Ergebnis-Payload aus der UI-Eingabe. `number` erzeugt zusätzlich
@@ -58,4 +58,52 @@ export function canonicalPayloadJson(payload: ResultPayload) {
 
 export async function hashPayload(payload: ResultPayload) {
   return sha256(canonicalPayloadJson(payload));
+}
+
+/**
+ * Eingabemodus für Mehrteamspiele aus der konfigurierten Wertungsregel.
+ * Werden mehrere Plätze belohnt (z. B. 4/3/2), müssen sie auch erfasst
+ * werden: im Modus "Nur Gewinner" bekämen alle übrigen Teams gemeinsam
+ * Platz 2 und damit die Punkte des zweiten Platzes.
+ */
+export function placementModeFor(
+  pkg: StationPackage,
+  match: PackageMatch,
+  game: PackageGame,
+): 'winner' | 'top3' {
+  const ruleId = match.scoring_rule_id ?? game.scoring_rule_id;
+  const rule = ruleId ? pkg.scoring_rules.find((r) => r.id === ruleId) : undefined;
+  if (rule?.mode === 'placement') {
+    const points = (rule.config as { points_by_place?: Record<string, unknown> }).points_by_place ?? {};
+    return Object.keys(points).length <= 1 ? 'winner' : 'top3';
+  }
+  return 'top3';
+}
+
+/**
+ * Höchster Platz, der in der Wertungsregel Punkte bringt (Standard 3). Nur
+ * unter diesen Plätzen ist ein Gleichstand entscheidungspflichtig.
+ */
+export function rewardedPlaces(pkg: StationPackage, match: PackageMatch, game: PackageGame): number {
+  const ruleId = match.scoring_rule_id ?? game.scoring_rule_id;
+  const rule = ruleId ? pkg.scoring_rules.find((r) => r.id === ruleId) : undefined;
+  // Rohpunkte zählen den Wert, nicht den Platz: ein Gleichstand ist unerheblich.
+  if (rule?.mode === 'raw_value') return 0;
+  if (rule?.mode === 'placement') {
+    const places = Object.keys((rule.config as { points_by_place?: Record<string, unknown> }).points_by_place ?? {})
+      .map(Number)
+      .filter((n) => Number.isInteger(n) && n > 0);
+    if (places.length > 0) return Math.max(...places);
+  }
+  return 3;
+}
+
+/** Teilen mehrere Teams einen Platz bis `rewarded`, ist das Ergebnis nicht eindeutig. */
+export function hasBlockingTie(payload: ResultPayload, rewarded: number): boolean {
+  const counts = new Map<number, number>();
+  for (const v of payload.values) {
+    if (v.placement == null || v.placement > rewarded) continue;
+    counts.set(v.placement, (counts.get(v.placement) ?? 0) + 1);
+  }
+  return [...counts.values()].some((n) => n > 1);
 }

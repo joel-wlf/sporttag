@@ -36,7 +36,7 @@ export function Header({
       {eyebrow ? (
         <Text className="text-[11px] font-black tracking-[1px] text-primary">{eyebrow}</Text>
       ) : null}
-      <Text className="text-[30px] font-extrabold leading-9 tracking-[-0.8px] text-ink">
+      <Text className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-ink">
         {title}
       </Text>
       {description ? (

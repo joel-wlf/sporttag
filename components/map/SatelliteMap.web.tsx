@@ -14,6 +14,23 @@ function escapeHtml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+/**
+ * SVG-Inhalte der Pin-Symbole als Markup für Leaflet-divIcons; dieselben
+ * Formen wie in components/ui/Icon.tsx. Unbekannte Namen fallen auf die
+ * Stecknadel zurück.
+ */
+const PIN_GLYPHS: Record<string, (stroke: string) => string> = {
+  'map-pin': () => '<path d="M12 21s6.5-5.4 6.5-10.5a6.5 6.5 0 1 0-13 0C5.5 15.6 12 21 12 21Z"/><circle cx="12" cy="10.5" r="2.4"/>',
+  alert: () => '<path d="M10.3 3.9 2.6 17.4a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><line x1="12" y1="9" x2="12" y2="13.5"/><line x1="12" y1="17" x2="12" y2="17.01"/>',
+  users: () => '<circle cx="9" cy="8" r="3.25"/><path d="M2.75 20a6.25 6.25 0 0 1 12.5 0"/><path d="M15.5 5.1a3.25 3.25 0 0 1 0 6.3"/><path d="M17.5 14.2a6.25 6.25 0 0 1 3.75 5.8"/>',
+  'wifi-off': (stroke) =>
+    `<line x1="3" y1="3" x2="21" y2="21"/><path d="M5 8.8a15.5 15.5 0 0 1 4.6-2.6"/><path d="M13.3 5.6A15.5 15.5 0 0 1 19 8.8"/><path d="M8.3 12.6a9.8 9.8 0 0 1 3.2-1.5"/><path d="M15.4 13.8a9.8 9.8 0 0 0-1.4-1.2"/><path d="M11.5 16.4a3.9 3.9 0 0 1 2 .6"/><circle cx="12" cy="19.5" r="0.9" fill="${stroke}"/>`,
+  play: (stroke) => `<path d="M6 4.5v15l14-7.5Z" fill="${stroke}"/>`,
+  clock: () => '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>',
+  check: () => '<polyline points="4.5 12.5 9.5 17.5 19.5 7"/>',
+  minus: () => '<line x1="5" y1="12" x2="19" y2="12"/>',
+};
+
 function buildPinIcon(pin: MapPin, tokens: ThemeTokens): L.DivIcon {
   const bubbleColor = pin.color ?? (pin.selected ? tokens.accent : tokens.primary);
   const size = pin.selected ? 38 : 32;
@@ -29,7 +46,7 @@ function buildPinIcon(pin: MapPin, tokens: ThemeTokens): L.DivIcon {
     : '';
   const extraHeight = pin.scoreLabel ? 18 : 0;
   return L.divIcon({
-    html: `<div style="display:flex;flex-direction:column;align-items:center;">${scoreChip}${chip}<div style="position:relative;height:${size}px;width:${size}px;border-radius:9999px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(0,0,0,0.15);background:${bubbleColor};${border}">${badge}<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="${tokens.onPrimary}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-5.4 6.5-10.5a6.5 6.5 0 1 0-13 0C5.5 15.6 12 21 12 21Z"/><circle cx="12" cy="10.5" r="2.4"/></svg></div></div>`,
+    html: `<div style="display:flex;flex-direction:column;align-items:center;">${scoreChip}${chip}<div style="position:relative;height:${size}px;width:${size}px;border-radius:9999px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(0,0,0,0.15);background:${bubbleColor};${border}">${badge}<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="${tokens.onPrimary}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${(PIN_GLYPHS[pin.icon ?? 'map-pin'] ?? PIN_GLYPHS['map-pin'])(tokens.onPrimary)}</svg></div></div>`,
     className: '',
     iconSize: [size, 46 + extraHeight],
     iconAnchor: [size / 2, 32 + extraHeight],
@@ -167,7 +184,11 @@ export function SatelliteMap({
     const points: L.LatLngExpression[] = pins.map((p) => [p.coordinate[1], p.coordinate[0]]);
     if (bounds) points.push([bounds.south, bounds.west], [bounds.north, bounds.east]);
     if (points.length === 0) return;
-    map.fitBounds(L.latLngBounds(points), { padding: [60, 60], maxZoom: 18 });
+    // Container-Größe neu messen: Die Karte wird oft vor ihrem endgültigen
+    // Layout erzeugt und passte sonst auf eine veraltete Höhe ein.
+    map.invalidateSize();
+    // Beschriftungen stehen zentriert über dem Pin: seitlich/oben mehr Rand.
+    map.fitBounds(L.latLngBounds(points), { paddingTopLeft: [80, 64], paddingBottomRight: [80, 24], maxZoom: 18 });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by value via `fitKey`
   }, [fitKey]);
 

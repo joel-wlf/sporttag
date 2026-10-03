@@ -131,7 +131,16 @@ export type Timeline = {
   /** Verzug über alle Gruppen: Median-nahes Bild ohne Ausreißer-Drama. */
   medianDelayMs: number | null;
   worstDelayMs: number | null;
+  /**
+   * Aufenthalte, die weit vor ihrer aktuellen Planzeit erreicht wurden. Das
+   * passiert, wenn der Zeitplan nachträglich verschoben wurde; sie zählen
+   * nicht zum Verzug (sonst stand dort z. B. „−212 min“).
+   */
+  offPlanCount: number;
 };
+
+/** Früher als das gilt eine Ankunft nicht als „zu früh“, sondern als Planänderung. */
+export const PLAN_SHIFT_MS = 60 * 60_000;
 
 const ms = (iso: string | null | undefined): number | null => {
   if (!iso) return null;
@@ -260,7 +269,7 @@ export function buildTimeline(input: TimelineInput, now: Date): Timeline {
     const team = teamById.get(teamId);
     // Der laufende Aufenthalt ist der erste, der noch nicht abgeschlossen ist.
     const currentLeg = legs.find((l) => l.phase !== 'released' && l.phase !== 'cancelled') ?? legs[legs.length - 1] ?? null;
-    const reached = legs.filter((l) => l.delayMs !== null);
+    const reached = legs.filter((l) => l.delayMs !== null && l.delayMs > -PLAN_SHIFT_MS);
     const lastReached = reached[reached.length - 1] ?? null;
 
     teams.push({
@@ -294,7 +303,15 @@ export function buildTimeline(input: TimelineInput, now: Date): Timeline {
       const arrivals = matchLegs.map((l) => l.arrivedAt).filter((v): v is number => v !== null);
       const releases = matchLegs.map((l) => l.releasedAt).filter((v): v is number => v !== null);
       // Die Station ist erst frei, wenn *alle* Gruppen weitergeschickt sind.
-      const actualEnd = releases.length === matchLegs.length ? Math.max(...releases) : null;
+      // Ohne Laufzettel (niemand hat "Eingetroffen" getippt) gelten Spielstart
+      // und -ende, sonst bliebe ein gespieltes Match in der Zeitleiste unsichtbar.
+      const usesVisits = arrivals.length > 0;
+      const actualEnd =
+        releases.length === matchLegs.length && releases.length > 0
+          ? Math.max(...releases)
+          : usesVisits
+            ? null
+            : first.endedAt;
       bars.push({
         key: matchId,
         matchId,
@@ -304,12 +321,12 @@ export function buildTimeline(input: TimelineInput, now: Date): Timeline {
         cancelled: first.cancelled,
         plannedStart: first.plannedStart,
         plannedEnd: first.plannedEnd,
-        actualStart: arrivals.length > 0 ? Math.min(...arrivals) : null,
+        actualStart: usesVisits ? Math.min(...arrivals) : first.startedAt,
         actualEnd,
         startedAt: first.startedAt,
         phase: first.cancelled
           ? 'cancelled'
-          : actualEnd !== null
+          : usesVisits && actualEnd !== null
             ? 'released'
             : first.endedAt !== null
               ? 'played'
@@ -355,6 +372,10 @@ export function buildTimeline(input: TimelineInput, now: Date): Timeline {
   const domainEnd = (marks.length > 0 ? Math.max(...marks) : nowMs) + 5 * 60_000;
 
   const delays = teams.map((t) => t.delayMs).filter((v): v is number => v !== null);
+  const offPlanCount = teams.reduce(
+    (sum, t) => sum + t.legs.filter((l) => l.delayMs !== null && l.delayMs <= -PLAN_SHIFT_MS).length,
+    0,
+  );
 
   return {
     domainStart,
@@ -363,6 +384,7 @@ export function buildTimeline(input: TimelineInput, now: Date): Timeline {
     stations,
     medianDelayMs: median(delays),
     worstDelayMs: delays.length > 0 ? Math.max(...delays) : null,
+    offPlanCount,
   };
 }
 

@@ -1,10 +1,11 @@
 import { Slot, Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { Platform, useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions, View } from 'react-native';
 import { BackofficeShell } from '@/components/layout/BackofficeShell';
 import { tabItems } from '@/components/layout/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { useTokens } from '@/components/ui/theme';
+import { useSession } from '@/providers/SessionProvider';
 
 /**
  * Native Tab-Leiste für iOS und Android. SF Symbols auf iOS,
@@ -21,7 +22,15 @@ const nativeTabItems = [
 export default function BackofficeLayout() {
   const { width } = useWindowDimensions();
   const tokens = useTokens();
+  const { session } = useSession();
   const wide = width >= 960;
+
+  // Der Kaltstart öffnet `/` (dieser Index). Ohne Organisatorensitzung leitet
+  // die Routenwache sofort zu /join um; bis dahin weder Tab-Leiste noch
+  // Backoffice-Abfragen zeigen bzw. auslösen.
+  if (!session || session.user.is_anonymous) {
+    return <View style={{ flex: 1, backgroundColor: tokens.background }} />;
+  }
 
   // Breite Ansichten (Web-Desktop, iPad): gruppierte Sidebar, keine Tab-Leiste.
   if (wide) {

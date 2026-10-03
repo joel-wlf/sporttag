@@ -19,6 +19,7 @@ export function FormSheet({
   isSubmitting = false,
   error,
   secondaryAction,
+  cancelLabel,
   children,
 }: {
   visible: boolean;
@@ -29,18 +30,38 @@ export function FormSheet({
   isSubmitting?: boolean;
   error?: string | null;
   secondaryAction?: React.ReactNode;
+  /**
+   * Beschriftung des Schließen-Knopfs unten. Ohne `onSubmit` gibt es nichts
+   * abzubrechen, deshalb „Schließen“; `null` blendet ihn aus (das X oben bleibt).
+   */
+  cancelLabel?: string | null;
   children: React.ReactNode;
 }) {
   const tokens = useTokens();
   const desktop = useDesktop();
+  const closeLabel =
+    cancelLabel === undefined ? (onSubmit ? 'Abbrechen' : 'Schließen') : cancelLabel;
+  const showFooter = Boolean(onSubmit || secondaryAction || closeLabel);
 
   const body = (
     <>
       <View className="flex-row items-center justify-between border-b border-line px-5 py-4">
-        <Text className="text-[17px] font-extrabold text-ink">{title}</Text>
-        <Button leftIcon="close" onPress={onClose} size="sm" variant="ghost" />
+        <Text className="min-w-0 flex-1 text-[17px] font-extrabold text-ink" numberOfLines={2}>
+          {title}
+        </Text>
+        <Button
+          accessibilityLabel="Schließen"
+          leftIcon="close"
+          onPress={onClose}
+          size="sm"
+          variant="ghost"
+        />
       </View>
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 20, gap: 16 }} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ padding: 20, gap: 16 }}
+        keyboardShouldPersistTaps="handled"
+      >
         {children}
         {error ? (
           <View className="flex-row items-center gap-2 rounded-2xl bg-danger-soft px-4 py-3">
@@ -49,13 +70,17 @@ export function FormSheet({
           </View>
         ) : null}
       </ScrollView>
-      <View className="flex-row items-center justify-between gap-3 border-t border-line px-5 py-4">
-        <View>{secondaryAction}</View>
-        <View className="flex-row gap-3">
-          <Button label="Abbrechen" onPress={onClose} variant="outline" />
-          {onSubmit ? <Button isLoading={isSubmitting} label={submitLabel} onPress={onSubmit} /> : null}
+      {showFooter ? (
+        <View className="flex-row flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-4">
+          <View>{secondaryAction}</View>
+          <View className="flex-row gap-3">
+            {closeLabel ? <Button label={closeLabel} onPress={onClose} variant="outline" /> : null}
+            {onSubmit ? (
+              <Button isLoading={isSubmitting} label={submitLabel} onPress={onSubmit} />
+            ) : null}
+          </View>
         </View>
-      </View>
+      ) : null}
     </>
   );
 
@@ -69,7 +94,10 @@ export function FormSheet({
             className="absolute inset-0 bg-black/30"
             onPress={onClose}
           />
-          <View className="h-full w-[420px] max-w-full bg-canvas shadow-xl" style={{ elevation: 12 }}>
+          <View
+            className="h-full w-[420px] max-w-full bg-canvas shadow-xl"
+            style={{ elevation: 12 }}
+          >
             {body}
           </View>
         </View>
@@ -78,7 +106,12 @@ export function FormSheet({
   }
 
   return (
-    <Modal animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet" visible={visible}>
+    <Modal
+      animationType="slide"
+      onRequestClose={onClose}
+      presentationStyle="pageSheet"
+      visible={visible}
+    >
       <View className="flex-1 bg-canvas">{body}</View>
     </Modal>
   );

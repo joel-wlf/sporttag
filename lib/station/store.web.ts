@@ -9,6 +9,7 @@ import type {
   SyncCounts,
 } from './types';
 import type { StationState } from './store';
+import { countOutbox } from './syncCounts';
 
 /**
  * Web-Fallback des Stationsspeichers: dieselbe Schnittstelle wie `store.ts`,
@@ -89,6 +90,17 @@ export async function getAnyStationState(): Promise<StationState | null> {
   const db = await load();
   const first = Object.values(db.stationState)[0];
   return first ?? null;
+}
+
+/** Siehe store.ts: bevorzugt ein nicht verlassenes, zuletzt geladenes Event. */
+export async function getCurrentStationState(): Promise<StationState | null> {
+  const db = await load();
+  const states = Object.values(db.stationState).sort(
+    (a, b) =>
+      Number(a.left) - Number(b.left) ||
+      (b.lastDownloadAt ?? '').localeCompare(a.lastDownloadAt ?? ''),
+  );
+  return states[0] ?? null;
 }
 
 export async function ensureStationState(eventId: string, accessId: string) {
@@ -210,8 +222,20 @@ export async function loadActiveCheckin(eventId: string): Promise<LocalCheckin |
   return active[active.length - 1] ?? null;
 }
 
-export async function saveResultSubmission(submission: LocalResultSubmission) {
+/** Wie die native Fassung: vergibt die lückenlose Sequenz beim Speichern. */
+export async function saveResultSubmission(
+  input: Omit<LocalResultSubmission, 'localSequence'>,
+): Promise<number> {
   const db = await load();
+  const state = db.stationState[input.eventId];
+  const maxSeq = Math.max(
+    0,
+    ...Object.values(db.submissions)
+      .filter((s) => s.eventId === input.eventId)
+      .map((s) => s.localSequence),
+  );
+  const localSequence = Math.max(state?.nextSequence ?? 1, maxSeq + 1);
+  const submission: LocalResultSubmission = { ...input, localSequence };
   db.submissions[submission.requestId] = submission;
   const position = await nextPosition(db);
   db.outbox[submission.requestId] = {
@@ -224,11 +248,19 @@ export async function saveResultSubmission(submission: LocalResultSubmission) {
     lastError: null,
     receiptStatus: null,
   };
-  const state = db.stationState[submission.eventId];
-  if (state && state.nextSequence <= submission.localSequence) {
-    state.nextSequence = submission.localSequence + 1;
+  const previousNext = state?.nextSequence;
+  if (state) state.nextSequence = localSequence + 1;
+  try {
+    // Ein Ergebnis darf nur als gespeichert gelten, wenn es wirklich im
+    // Browser-Speicher liegt (z. B. Kontingent voll): sonst zurücknehmen.
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+  } catch (error) {
+    delete db.submissions[submission.requestId];
+    delete db.outbox[submission.requestId];
+    if (state && previousNext !== undefined) state.nextSequence = previousNext;
+    throw error;
   }
-  await persist();
+  return localSequence;
 }
 
 export async function loadResultSubmissions(eventId: string): Promise<LocalResultSubmission[]> {
@@ -277,6 +309,26 @@ export async function markOutboxReceived(requestId: string, receiptStatus: strin
   if (db.outbox[requestId]) {
     db.outbox[requestId].state = 'received';
     db.outbox[requestId].receiptStatus = receiptStatus;
+    db.outbox[requestId].lastError = null;
+  }
+  await persist();
+}
+
+/** Übernimmt einen späteren Serverstatus (z. B. von der Leitung geklärt). */
+export async function updateReceiptStatus(requestId: string, status: string) {
+  const db = await load();
+  const entry = db.outbox[requestId];
+  if (entry && entry.state === 'received') entry.receiptStatus = status;
+  await persist();
+}
+
+/** Setzt einen unterbrochenen Versand (kein Netz) ohne Fehlerzählung zurück. */
+export async function markOutboxPending(requestId: string) {
+  const db = await load();
+  const entry = db.outbox[requestId];
+  if (entry && entry.state !== 'received') {
+    entry.state = 'pending';
+    entry.lastError = null;
   }
   await persist();
 }
@@ -294,21 +346,7 @@ export async function markOutboxFailed(requestId: string, error: string, nextAtt
 }
 
 export async function countSyncByEvent(eventId: string): Promise<SyncCounts> {
-  const outbox = await loadOutbox(eventId);
-  let pending = 0;
-  let sending = 0;
-  let review = 0;
-  let synced = 0;
-  for (const entry of outbox) {
-    if (entry.kind !== 'result') continue;
-    if (entry.state === 'pending') pending += 1;
-    else if (entry.state === 'sending') sending += 1;
-    else if (entry.state === 'received') {
-      if (entry.receiptStatus === 'accepted') synced += 1;
-      else review += 1;
-    }
-  }
-  return { pending, sending, review, synced };
+  return countOutbox(await loadOutbox(eventId));
 }
 
 export async function saveDraft(matchId: string, eventId: string, draft: unknown) {

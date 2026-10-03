@@ -17,6 +17,9 @@ export type PackageEvent = {
   venue_south: number | null;
   venue_east: number | null;
   venue_west: number | null;
+  /** Hilfe-Rufnummern aus den Event-Einstellungen; ältere Pakete haben sie nicht. */
+  assistance_phone?: string | null;
+  medical_phone?: string | null;
 };
 
 export type PackageTeam = { id: string; name: string; number: number | null; color: string | null };
@@ -173,6 +176,15 @@ export type ResultPayloadValue = { participant_id: string; measured_value?: numb
 export type ResultPayload = { values: ResultPayloadValue[] };
 
 /**
+ * Eintrag im Live-Zwischenstand. Zählerspiele (`measurement_type = 'number'`)
+ * führen je Team eine Versionsnummer `rev` und das schreibende Gerät `by`:
+ * Stände mehrerer Geräte werden je Team zusammengeführt statt als Ganzes
+ * überschrieben (docs/datenkonzept.md Abschnitt 11.6). Beides gehört nie in
+ * die Ergebnis-Payload.
+ */
+export type LiveValue = ResultPayloadValue & { rev?: number; by?: string };
+
+/**
  * Lokaler Live-Zwischenstand eines Matches. Er wird fortlaufend (nicht
  * revisionsbasiert) übertragen und ist die Grundlage dafür, dass das
  * Backoffice ein Match live als "läuft" mit mitlaufendem Punktestand zeigt.
@@ -183,7 +195,7 @@ export type LocalLiveState = {
   matchId: string;
   eventId: string;
   checkinId: string;
-  values: ResultPayloadValue[];
+  values: LiveValue[];
   started: boolean;
   dirty: boolean;
   updatedAt: string;
@@ -236,4 +248,8 @@ export type SyncCounts = {
   sending: number;
   review: number;
   synced: number;
+  /** Vom Server abgelehnte, noch offene Einträge (Ergebnisse oder Check-ins). */
+  failed: number;
+  /** Letzte Ablehnung eines offenen Eintrags, für die Anzeige im Sync-Sheet. */
+  lastError: string | null;
 };

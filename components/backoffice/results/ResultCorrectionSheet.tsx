@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Text, View } from 'react-native';
 import { Choice } from '@/components/ui/Choice';
 import { Field } from '@/components/ui/Input';
 import { FormSheet } from '@/components/ui/FormSheet';
@@ -60,31 +60,80 @@ export function ResultCorrectionSheet({
   const { match, game, participants } = row;
   const isMultiTeam = participants.length > 2;
   const isNumber = game?.measurement_type === 'number';
-  const isCorrection = match.current_result_version > 0;
+  const hasResult = row.currentValues.length > 0;
+  // Der Server verlangt eine Begründung, sobald es schon eine Revision gibt –
+  // auch nach einem Zurückziehen (leere Revision) – und sobald offene
+  // Abgaben mit aufgelöst werden. Nur die allererste Eingabe ohne offene
+  // Konflikte kommt ohne aus (sonst lehnte der Server mit reason_required ab,
+  // obwohl das Feld als optional angezeigt wurde).
+  const hasRevision = match.current_result_version > 0;
+  const needsReason = hasRevision || row.openSubmissions.length > 0;
+  const mode: 'first' | 'correct' | 'reenter' = hasResult
+    ? 'correct'
+    : hasRevision
+      ? 'reenter'
+      : 'first';
   const packageMatch = {
-    participants: participants.map((p) => ({ id: p.participantId, team_id: p.team?.id ?? '', slot: p.slot })),
+    participants: participants.map((p) => ({
+      id: p.participantId,
+      team_id: p.team?.id ?? '',
+      slot: p.slot,
+    })),
   } as unknown as PackageMatch;
 
-  const canSubmit = isNumber ? true : isMultiTeam ? participants.every((p) => placements[p.participantId]?.trim()) : outcome !== null;
+  // Deutsches Dezimalkomma zulassen; ein leeres Feld ist fehlend, nicht 0.
+  const parseNumber = (text: string | undefined) => {
+    const trimmed = (text ?? '').trim().replace(',', '.');
+    if (!trimmed) return null;
+    const value = Number(trimmed);
+    return Number.isFinite(value) ? value : null;
+  };
+
+  const validate = (): string | null => {
+    if (isNumber) {
+      if (participants.some((p) => parseNumber(values[p.participantId]) === null)) {
+        return 'Bitte für jedes Team eine Zahl eintragen.';
+      }
+    } else if (isMultiTeam) {
+      const places = participants.map((p) => Number((placements[p.participantId] ?? '').trim()));
+      if (
+        places.some((place) => !Number.isInteger(place) || place < 1 || place > participants.length)
+      ) {
+        return `Bitte für jedes Team einen Platz von 1 bis ${participants.length} eintragen.`;
+      }
+    } else if (outcome === null) {
+      return 'Bitte den Ausgang wählen.';
+    }
+    if (needsReason && !reason.trim()) return 'Bitte eine Begründung angeben.';
+    return null;
+  };
 
   const submit = async () => {
-    // Eine Korrektur eines bestehenden Ergebnisses braucht eine Begründung;
-    // eine erstmalige manuelle Eingabe nicht.
-    if (isCorrection && !reason.trim()) {
-      setError('Bitte eine Begründung angeben.');
+    const problem = validate();
+    if (problem) {
+      setError(problem);
       return;
     }
-    if (!canSubmit) return;
     setError(null);
     try {
       const payload: ResultPayload = isNumber
         ? buildNumberPayload(
             packageMatch,
             game as unknown as PackageGame,
-            Object.fromEntries(participants.map((p) => [p.participantId, Number(values[p.participantId] ?? 0)])),
+            Object.fromEntries(
+              participants.map((p) => [
+                p.participantId,
+                parseNumber(values[p.participantId]) as number,
+              ]),
+            ),
           )
         : isMultiTeam
-          ? { values: participants.map((p) => ({ participant_id: p.participantId, placement: Number(placements[p.participantId] ?? 0) })) }
+          ? {
+              values: participants.map((p) => ({
+                participant_id: p.participantId,
+                placement: Number(placements[p.participantId]),
+              })),
+            }
           : buildOutcomePayload(packageMatch, outcome ?? 'home');
       await record.mutateAsync({
         matchId: match.id,
@@ -111,8 +160,14 @@ export function ResultCorrectionSheet({
       isSubmitting={record.isPending}
       onClose={onClose}
       onSubmit={() => void submit()}
-      submitLabel={isCorrection ? 'Korrektur speichern' : 'Ergebnis speichern'}
-      title={isCorrection ? 'Ergebnis korrigieren' : 'Ergebnis manuell eintragen'}
+      submitLabel={mode === 'correct' ? 'Korrektur speichern' : 'Ergebnis speichern'}
+      title={
+        mode === 'correct'
+          ? 'Ergebnis korrigieren'
+          : mode === 'reenter'
+            ? 'Ergebnis neu eintragen'
+            : 'Ergebnis eintragen'
+      }
       visible={Boolean(row)}
     >
       <View className="gap-3">
@@ -138,17 +193,29 @@ export function ResultCorrectionSheet({
             />
           ))
         ) : (
-          <View className="gap-2">
+          <View accessibilityRole="radiogroup" className="gap-2">
+            <Text className="text-[13px] font-bold text-ink">Wer hat gewonnen?</Text>
             {outcomeOptions.map((option) => (
-              <Choice key={option.key} label={option.label} onPress={() => setOutcome(option.key)} selected={outcome === option.key} />
+              <Choice
+                key={option.key}
+                label={option.label}
+                onPress={() => setOutcome(option.key)}
+                selected={outcome === option.key}
+              />
             ))}
           </View>
         )}
       </View>
       <Field
-        label={isCorrection ? 'Begründung' : 'Begründung (optional)'}
+        label={needsReason ? 'Begründung' : 'Begründung (optional)'}
         onChangeText={setReason}
-        placeholder={isCorrection ? 'Warum wird das Ergebnis korrigiert?' : 'z. B. manuell nachgetragen'}
+        placeholder={
+          mode === 'correct'
+            ? 'Warum wird das Ergebnis korrigiert?'
+            : mode === 'reenter'
+              ? 'Warum wird neu eingetragen?'
+              : 'z. B. Gerät an der Station ausgefallen'
+        }
         value={reason}
       />
     </FormSheet>

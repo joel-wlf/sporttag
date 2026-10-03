@@ -1,5 +1,6 @@
 import { ScrollView, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTokens } from '@/components/ui/theme';
 
 export function Screen({
   children,
@@ -16,7 +17,7 @@ export function Screen({
   footer?: React.ReactNode;
   className?: string;
 }) {
-  const insets = useSafeAreaInsets();
+  const tokens = useTokens();
   const inner = (
     <View
       className={[
@@ -46,22 +47,41 @@ export function Screen({
   );
 
   if (!footer) {
-    return body;
+    // Auch ohne Aktionsleiste den unteren Sicherheitsbereich freihalten: in
+    // Tab-Screens gehört die schwebende Tab-Leiste dazu, sonst lief der
+    // Inhalt (z. B. die Hilfe-Knöpfe) unter sie.
+    return (
+      <SafeAreaView
+        edges={{ bottom: 'additive' }}
+        style={{ flex: 1, backgroundColor: tokens.background }}
+      >
+        {body}
+      </SafeAreaView>
+    );
   }
 
   return (
     <View className="flex-1 bg-canvas">
       {body}
-      <View
-        className={[
-          'w-full self-center bg-canvas',
-          density === 'compact' ? 'px-5 pt-2' : 'px-6 pt-3',
-          size === 'narrow' ? 'max-w-[760px]' : 'max-w-[1320px]',
-        ].join(' ')}
-        style={{ paddingBottom: Math.max(insets.bottom, 12) }}
+      {/* Native SafeAreaView statt Fenster-Insets: in Tab-Screens gehört die
+          schwebende Tab-Leiste zum Sicherheitsbereich, sonst klebte die
+          Aktionsleiste direkt an (bzw. unter) ihr. */}
+      <SafeAreaView
+        edges={{ bottom: 'additive' }}
+        style={{ paddingBottom: 12, backgroundColor: tokens.background }}
       >
-        {footer}
-      </View>
+        {/* Klassen auf der inneren View: NativeWind stylt die native
+            SafeAreaView nicht, Abstände und Breite gingen sonst verloren. */}
+        <View
+          className={[
+            'w-full self-center bg-canvas',
+            density === 'compact' ? 'px-5 pt-2' : 'px-6 pt-3',
+            size === 'narrow' ? 'max-w-[760px]' : 'max-w-[1320px]',
+          ].join(' ')}
+        >
+          {footer}
+        </View>
+      </SafeAreaView>
     </View>
   );
 }

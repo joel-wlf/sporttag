@@ -79,7 +79,7 @@ export function Button({
   isLoading = false,
   isDisabled = false,
   fullWidth = false,
-  haptic: activationHaptic = 'heavy',
+  haptic: activationHaptic = 'light',
   className,
   children,
   onPress,
@@ -94,7 +94,8 @@ export function Button({
   const handlePressIn: NonNullable<React.ComponentProps<typeof ButtonRoot>['onPressIn']> = (
     event,
   ) => {
-    triggerHaptic(activationHaptic);
+    // Ein deaktivierter Knopf gibt kein Feedback, als hätte er reagiert.
+    if (!disabled) triggerHaptic(activationHaptic);
     onPressIn?.(event);
   };
   const handlePressOut: NonNullable<React.ComponentProps<typeof ButtonRoot>['onPressOut']> = (

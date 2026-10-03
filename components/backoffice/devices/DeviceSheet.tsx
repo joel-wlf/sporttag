@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { Badge } from '@/components/ui/Badge';
@@ -27,6 +28,7 @@ export function DeviceSheet({
   onClose: () => void;
 }) {
   const revoke = useRevokeDeviceAccess(eventId);
+  const router = useRouter();
   const setExpected = useSetDeviceExpected(eventId);
   const [confirmRevoke, setConfirmRevoke] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +73,20 @@ export function DeviceSheet({
         </View>
 
         {row.conflict_count + row.needs_review_count > 0 ? (
-          <Badge tone="warning">Konflikte und Korrekturvorschläge werden im Live-Modul geprüft.</Badge>
+          <View className="gap-2">
+            <Badge tone="warning">Abgaben dieses Geräts brauchen eine Klärung.</Badge>
+            <Button
+              className="self-start"
+              label="Unter Ergebnisse klären"
+              onPress={() => {
+                onClose();
+                router.navigate('/results');
+              }}
+              rightIcon="chevron-right"
+              size="sm"
+              variant="outline"
+            />
+          </View>
         ) : null}
 
         <View className="gap-2">
@@ -85,16 +100,18 @@ export function DeviceSheet({
             <Button label="Gerätezugang widerrufen" onPress={() => setConfirmRevoke(true)} variant="outline" />
           ) : null}
         </View>
+
+        {/* Im Sheet verschachtelt: ein zweites Modal daneben erscheint auf iOS nicht. */}
+        <ConfirmDialog
+          description="Das Gerät verliert sofort den Zugang zu dieser Veranstaltung."
+          isLoading={revoke.isPending}
+          onCancel={() => setConfirmRevoke(false)}
+          onConfirm={handleRevoke}
+          title="Gerätezugang widerrufen?"
+          visible={confirmRevoke}
+        />
       </FormSheet>
 
-      <ConfirmDialog
-        description="Das Gerät verliert sofort den Zugang zu dieser Veranstaltung."
-        isLoading={revoke.isPending}
-        onCancel={() => setConfirmRevoke(false)}
-        onConfirm={handleRevoke}
-        title="Gerätezugang widerrufen?"
-        visible={confirmRevoke}
-      />
     </>
   );
 }

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
+import { PlanVersionNotice } from '@/components/backoffice/PlanVersionNotice';
 import { RequireEvent } from '@/components/backoffice/RequireEvent';
 import { QuickTeamsModal } from '@/components/backoffice/planning/QuickTeamsModal';
 import { TeamFormModal } from '@/components/backoffice/planning/TeamFormModal';
@@ -174,6 +175,7 @@ function TeamsContent() {
         eyebrow="PLANUNG"
         title="Teams"
       />
+      <PlanVersionNotice />
 
       {boardError ? (
         <View className="flex-row items-center gap-2 rounded-2xl bg-danger-soft px-4 py-3">

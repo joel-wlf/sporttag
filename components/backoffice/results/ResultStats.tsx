@@ -11,10 +11,25 @@ export function ResultStats({ rows }: { rows: ResultRow[] }) {
 
   return (
     <View className="flex-row flex-wrap gap-3">
-      <StatCard hint="im Tabellenstand" icon="check-circle" label="Angenommen" value={String(accepted)} />
+      <StatCard
+        hint="im Tabellenstand"
+        icon="check-circle"
+        label="Angenommen"
+        value={String(accepted)}
+      />
       <StatCard hint="noch kein Ergebnis" icon="clock" label="Offen" value={String(open)} />
-      <StatCard hint="Korrekturvorschlag prüfen" icon="alert" label="Klärung nötig" value={String(needsReview)} />
-      <StatCard hint="widersprüchliche Abgaben" icon="alert" label="Konflikte" value={String(conflict)} />
+      <StatCard
+        hint="Korrekturvorschlag prüfen"
+        icon="alert"
+        label="Klärung nötig"
+        value={String(needsReview)}
+      />
+      <StatCard
+        hint="widersprüchliche Abgaben"
+        icon="alert"
+        label="Konflikte"
+        value={String(conflict)}
+      />
     </View>
   );
 }

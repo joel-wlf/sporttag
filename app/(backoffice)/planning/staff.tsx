@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 import { RequireEvent } from '@/components/backoffice/RequireEvent';
 import { AssignStaffModal, type AssignmentTarget } from '@/components/backoffice/planning/AssignStaffModal';
 import { StaffFormModal } from '@/components/backoffice/planning/StaffFormModal';
+import { PlanVersionNotice } from '@/components/backoffice/PlanVersionNotice';
 import { Header } from '@/components/layout/Header';
 import { Screen } from '@/components/layout/Screen';
 import { Section } from '@/components/layout/Section';
@@ -228,6 +229,7 @@ function StaffContent() {
         eyebrow="PLANUNG"
         title="Betreuung"
       />
+      <PlanVersionNotice />
 
       <Section action={<Button label="Person hinzufügen" leftIcon="plus" onPress={() => setEditingStaff('new')} size="sm" />} title="Betreuungspersonen">
         {!staff || staff.length === 0 ? (

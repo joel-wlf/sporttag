@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import SporttagLiveActivity from '@/modules/sporttag-live-activity';
+import SporttagLiveActivity, { type EventHealthState } from '@/modules/sporttag-live-activity';
 
 /**
  * Dünne Hülle um das native ActivityKit-Modul (modules/sporttag-live-activity):
@@ -49,32 +49,20 @@ export function endMatchActivity(): void {
   safe(() => SporttagLiveActivity!.endMatchActivity(), undefined);
 }
 
-export type EventHealthActivityInput = {
-  eventName: string;
-  deepLinkUrl: string;
-  summary: string;
-  attentionCount: number;
-  roundEndsAtMs: number | null;
-};
+export type { EventHealthState } from '@/modules/sporttag-live-activity';
 
-export function startEventHealthActivity(input: EventHealthActivityInput): boolean {
-  return safe(
-    () =>
-      SporttagLiveActivity!.startEventHealthActivity(
-        input.eventName,
-        input.deepLinkUrl,
-        input.summary,
-        input.attentionCount,
-        input.roundEndsAtMs,
-      ),
-    false,
-  );
+export function startEventHealthActivity(eventName: string, deepLinkUrl: string, state: EventHealthState): boolean {
+  return safe(() => SporttagLiveActivity!.startEventHealthActivity(eventName, deepLinkUrl, state), false);
 }
 
-export function updateEventHealthActivity(input: Omit<EventHealthActivityInput, 'eventName' | 'deepLinkUrl'>): void {
-  safe(() => SporttagLiveActivity!.updateEventHealthActivity(input.summary, input.attentionCount, input.roundEndsAtMs), undefined);
+export function updateEventHealthActivity(state: EventHealthState): void {
+  safe(() => SporttagLiveActivity!.updateEventHealthActivity(state), undefined);
 }
 
 export function endEventHealthActivity(): void {
   safe(() => SporttagLiveActivity!.endEventHealthActivity(), undefined);
+}
+
+export function isEventHealthActivityRunning(): boolean {
+  return safe(() => SporttagLiveActivity!.isEventHealthActivityRunning(), false);
 }

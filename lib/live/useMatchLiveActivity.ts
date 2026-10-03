@@ -13,13 +13,21 @@ export type MatchLiveActivityInfo = {
  * Startet/aktualisiert/beendet die Match-Live-Activity (Sperrbildschirm +
  * Dynamic Island) für das aktuell laufende Match an dieser Station. Läuft
  * automatisch mit, sobald ein Match als "LÄUFT" erkannt wird – siehe die
- * gleichnamige Karte in app/(station)/cockpit/index.tsx.
+ * gleichnamige Karte in app/(station)/(tabs)/cockpit.tsx.
  */
 export function useMatchLiveActivity(running: MatchLiveActivityInfo | null): void {
   const activeMatchId = useRef<string | null>(null);
 
+  // Nur die angezeigten Felder lösen ein Update aus, nicht jede neue
+  // Objektidentität von `running`.
+  const matchId = running?.matchId ?? null;
+  const gameName = running?.gameName ?? '';
+  const teamsLabel = running?.teamsLabel ?? '';
+  const scoreLabel = running?.scoreLabel ?? null;
+  const roundEndsAt = running?.roundEndsAt ?? null;
+
   useEffect(() => {
-    if (!running) {
+    if (!matchId) {
       if (activeMatchId.current) {
         endMatchActivity();
         activeMatchId.current = null;
@@ -27,23 +35,23 @@ export function useMatchLiveActivity(running: MatchLiveActivityInfo | null): voi
       return;
     }
 
-    const roundEndsAtMs = running.roundEndsAt ? new Date(running.roundEndsAt).getTime() : null;
+    const roundEndsAtMs = roundEndsAt ? new Date(roundEndsAt).getTime() : null;
 
-    if (activeMatchId.current !== running.matchId) {
+    if (activeMatchId.current !== matchId) {
       startMatchActivity({
-        gameName: running.gameName,
-        matchId: running.matchId,
-        deepLinkUrl: `sporttag:///match/${running.matchId}`,
-        teamsLabel: running.teamsLabel,
-        scoreLabel: running.scoreLabel,
+        gameName,
+        matchId,
+        deepLinkUrl: `sporttag:///match/${matchId}`,
+        teamsLabel,
+        scoreLabel,
         roundEndsAtMs,
       });
-      activeMatchId.current = running.matchId;
+      activeMatchId.current = matchId;
       return;
     }
 
-    updateMatchActivity({ teamsLabel: running.teamsLabel, scoreLabel: running.scoreLabel, roundEndsAtMs });
-  }, [running?.matchId, running?.gameName, running?.teamsLabel, running?.scoreLabel, running?.roundEndsAt]);
+    updateMatchActivity({ teamsLabel, scoreLabel, roundEndsAtMs });
+  }, [matchId, gameName, teamsLabel, scoreLabel, roundEndsAt]);
 
   useEffect(
     () => () => {

@@ -124,10 +124,9 @@ function SidebarItem({ item, pathname }: { item: NavigationItem; pathname: strin
 
 function SidebarContent() {
   const pathname = usePathname();
-  const tokens = useTokens();
   const { session } = useSession();
   const email = session?.user.email ?? 'Angemeldet';
-  const { event } = useActiveEvent();
+  const { event, isLoading: eventLoading } = useActiveEvent();
 
   return (
     <ScrollView
@@ -144,7 +143,7 @@ function SidebarContent() {
             AUSGEWÄHLTE VERANSTALTUNG
           </Text>
           <Text numberOfLines={1} className="text-[14px] font-bold text-ink">
-            {event?.name ?? 'Keine ausgewählt'}
+            {event?.name ?? (eventLoading ? 'Wird geladen …' : 'Keine ausgewählt')}
           </Text>
           {event ? (
             <Badge tone={statusTones[event.status as EventStatus]} className="self-start">

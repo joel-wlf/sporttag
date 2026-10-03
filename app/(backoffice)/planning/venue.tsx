@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { RequireEvent } from '@/components/backoffice/RequireEvent';
+import { OfflineMapCard } from '@/components/backoffice/planning/OfflineMapCard';
 import { StationFormModal } from '@/components/backoffice/planning/StationFormModal';
 import { VenueMap, type VenueMapMode } from '@/components/backoffice/planning/VenueMap';
 import { boundsFromCorners } from '@/components/map/geo';
 import type { LngLat, MapPin } from '@/components/map/types';
+import { PlanVersionNotice } from '@/components/backoffice/PlanVersionNotice';
 import { Header } from '@/components/layout/Header';
 import { Screen } from '@/components/layout/Screen';
 import { Badge } from '@/components/ui/Badge';
@@ -143,6 +145,7 @@ function VenueContent() {
         eyebrow="PLANUNG"
         title="Gelände & Stationen"
       />
+      <PlanVersionNotice />
 
       <Card>
         <VenueMap
@@ -164,6 +167,8 @@ function VenueContent() {
           </View>
         ) : null}
       </Card>
+
+      {eventId ? <OfflineMapCard bounds={bounds} eventId={eventId} /> : null}
 
       {!stations || stations.length === 0 ? (
         <Card>

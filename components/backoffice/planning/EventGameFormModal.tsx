@@ -48,6 +48,11 @@ export function EventGameFormModal({
       setError('Teamzahl ist ungültig: 1 ≤ min ≤ max.');
       return;
     }
+    const chosenRule = scoringRules.find((rule) => rule.id === scoringRuleId);
+    if (chosenRule?.mode === 'raw_value' && measurementType !== 'number') {
+      setError('Rohpunkte brauchen ein Spiel mit Zahlwert. Bitte die Messung oder die Regel ändern.');
+      return;
+    }
     try {
       await upsert.mutateAsync({
         id: game && game !== 'new' ? game.id : undefined,

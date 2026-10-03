@@ -19,7 +19,7 @@ export function RequireEvent({ children }: { children: React.ReactNode }) {
           icon="overview"
           title="Keine Veranstaltung ausgewählt"
           description="Wähle zuerst eine Veranstaltung im Event-Portfolio aus, um dieses Modul zu bearbeiten."
-          action={<Button label="Zum Event-Portfolio" onPress={() => router.push('/')} />}
+          action={<Button label="Zum Event-Portfolio" onPress={() => router.navigate('/')} />}
         />
       </Screen>
     );

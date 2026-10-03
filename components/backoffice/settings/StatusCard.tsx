@@ -5,7 +5,13 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { friendlyErrorMessage } from '@/lib/api/errors';
-import { type EventRow, type EventStatus, useEventReadiness, usePublishEvent, useSetEventStatus } from '@/lib/api/events';
+import {
+  type EventRow,
+  type EventStatus,
+  useEventReadiness,
+  usePublishEvent,
+  useSetEventStatus,
+} from '@/lib/api/events';
 
 const statusLabels: Record<EventStatus, string> = {
   draft: 'Entwurf',
@@ -100,7 +106,12 @@ export function StatusCard({ event }: { event: EventRow }) {
           />
         ) : null}
         {nextStatuses[status].map((next) => (
-          <Button key={next} label={actionLabels[next]} onPress={() => setPendingStatus(next)} variant="outline" />
+          <Button
+            key={next}
+            label={actionLabels[next]}
+            onPress={() => setPendingStatus(next)}
+            variant="outline"
+          />
         ))}
       </View>
 
@@ -108,8 +119,14 @@ export function StatusCard({ event }: { event: EventRow }) {
         confirmLabel={pendingStatus ? actionLabels[pendingStatus] : 'Bestätigen'}
         description={
           pendingStatus === 'published'
-            ? 'Die Veröffentlichung fixiert ergebnisrelevante Regeln und erhöht die Planversion.'
-            : undefined
+            ? 'Stationsgeräte können danach beitreten. Planung bleibt bearbeitbar; Änderungen erhöhen die Planversion.'
+            : pendingStatus === 'running'
+              ? 'Kennzeichnet den Sporttag als laufend. Stationsgeräte arbeiten unverändert weiter.'
+              : pendingStatus === 'finished'
+                ? 'Kennzeichnet den Sporttag als beendet. Danach folgt der Abschlussabgleich unter Geräte & Synchronisierung.'
+                : pendingStatus === 'draft'
+                  ? 'Nur möglich, solange keine Ergebnisse abgegeben wurden. Stationsgeräte können dann nicht mehr beitreten.'
+                  : undefined
         }
         isLoading={setStatus.isPending || publish.isPending}
         onCancel={() => {

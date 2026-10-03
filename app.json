@@ -22,7 +22,8 @@
       "bundleIdentifier": "com.example.sporttag",
       "icon": "./assets/branding/app-icon/ios/Sporttag.icon",
       "infoPlist": {
-        "NSSupportsLiveActivities": true
+        "NSSupportsLiveActivities": true,
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -38,6 +39,26 @@
       "bundler": "metro",
       "output": "single",
       "favicon": "./assets/branding/app-icon/favicon.png"
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "bundleIdentifier": "com.example.sporttag.widget",
+                  "targetName": "SporttagWidgets",
+                  "entitlements": {}
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "149a1864-56e3-4770-a98a-62f0a38b66d1"
+      }
+    },
+    "owner": "joel377wol"
   }
 }

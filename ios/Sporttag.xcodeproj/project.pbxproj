@@ -3,45 +3,105 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0BC945FDB7A34A598FEEA08C /* Sporttag.icon in Resources */ = {isa = PBXBuildFile; fileRef = 3725C343A78447F1A9EC882B /* Sporttag.icon */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		246ECF4AFFFC3C8F30B43221 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D26E967DDEBB2BAD7915F4F3 /* ExpoModulesProvider.swift */; };
+		2EF5B5CBDAC167BEAD6EBE3C /* libPods-Sporttag.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6F9C10865321349DD06562A7 /* libPods-Sporttag.a */; };
+		3DD15CF7385745AEBC683DED /* Sporttag.icon in Resources */ = {isa = PBXBuildFile; fileRef = 33752035C3564AD8841F5466 /* Sporttag.icon */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		5D9E792830625D8600FC87A3 /* MapLibre in Frameworks */ = {isa = PBXBuildFile; productRef = C81350CA318319F305172431 /* MapLibre */; };
-		98118A81E5C32E5FC443414F /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A306AA1C8C6B130A8356D69B /* ExpoModulesProvider.swift */; };
+		5DFDE86730712C7800447467 /* MapLibre in Frameworks */ = {isa = PBXBuildFile; productRef = 6A7437091CF5AA88EAE22C61 /* MapLibre */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		D88CD765337DEAB3E40C30E5 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 5B06FFD0C68195E2B7516AAB /* PrivacyInfo.xcprivacy */; };
-		EEE5AD2B9BDBC0DAFFCB4464 /* libPods-Sporttag.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 765D0DF1CC9A2BBC5C2883CE /* libPods-Sporttag.a */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
+		F69EF5EC6F1C2A97CCE4ACA5 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FC55633B3CC5A132C050BEE0 /* PrivacyInfo.xcprivacy */; };
+		XX12B55A1EDABF083C3B51XX /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = XX470101BAEB8E0BBC8B0DXX /* WidgetKit.framework */; };
+		XX1A6800511A685AB346D2XX /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = XXA12889081EB894481655XX /* AppIntents.framework */; };
+		XX3C562DEF346B45594832XX /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = XXCAF23C3FC41F82140FA1XX /* ActivityKit.framework */; };
+		XX6A44985675A04437B8C4XX /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = XX4DFF38D47332D6BF0183XX /* SwiftUI.framework */; };
+		XX78CFA15BE1967A282481XX /* SporttagWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = XX474B7A5C6893FDBBAD94XX /* SporttagWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		XXBFCD8CBA8ED50C2A1153XX /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = XX135305598D66096A566CXX;
+			remoteInfo = SporttagWidgets;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		XX72A8CFBF0FBA13A79902XX /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				XX78CFA15BE1967A282481XX /* SporttagWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
-		13B07F961A680F5B00A75B9A /* Sporttag.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sporttag.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Sporttag/Images.xcassets; sourceTree = "<group>"; };
-		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Sporttag/Info.plist; sourceTree = "<group>"; };
-		3725C343A78447F1A9EC882B /* Sporttag.icon */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 527941274153; includeInIndex = 0; lastKnownFileType = unknown; name = Sporttag.icon; path = Sporttag/Sporttag.icon; sourceTree = "<group>"; };
-		5B06FFD0C68195E2B7516AAB /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = Sporttag/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		765D0DF1CC9A2BBC5C2883CE /* libPods-Sporttag.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Sporttag.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		A306AA1C8C6B130A8356D69B /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Sporttag/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		A35FA10477DEA83E58755613 /* Pods-Sporttag.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Sporttag.release.xcconfig"; path = "Target Support Files/Pods-Sporttag/Pods-Sporttag.release.xcconfig"; sourceTree = "<group>"; };
-		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Sporttag/SplashScreen.storyboard; sourceTree = "<group>"; };
-		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Sporttag/AppDelegate.swift; sourceTree = "<group>"; };
-		F11748442D0722820044C1D9 /* Sporttag-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Sporttag-Bridging-Header.h"; path = "Sporttag/Sporttag-Bridging-Header.h"; sourceTree = "<group>"; };
-		FD63D2F8B5F7DE7AB38BA519 /* Pods-Sporttag.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Sporttag.debug.xcconfig"; path = "Target Support Files/Pods-Sporttag/Pods-Sporttag.debug.xcconfig"; sourceTree = "<group>"; };
+		0F2338E74CA5B1485DAE7F8F /* Pods-Sporttag.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Sporttag.release.xcconfig"; path = "Target Support Files/Pods-Sporttag/Pods-Sporttag.release.xcconfig"; sourceTree = "<group>"; };
+		13B07F961A680F5B00A75B9A /* Sporttag.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; fileEncoding = 4; includeInIndex = 0; path = Sporttag.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Sporttag/Images.xcassets; sourceTree = "<group>"; };
+		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = Info.plist; path = Sporttag/Info.plist; sourceTree = "<group>"; };
+		33752035C3564AD8841F5466 /* Sporttag.icon */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 525333243641; includeInIndex = 0; lastKnownFileType = unknown; name = Sporttag.icon; path = Sporttag/Sporttag.icon; sourceTree = "<group>"; };
+		6F9C10865321349DD06562A7 /* libPods-Sporttag.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Sporttag.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Sporttag/SplashScreen.storyboard; sourceTree = "<group>"; };
+		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		D26E967DDEBB2BAD7915F4F3 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Sporttag/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Sporttag/AppDelegate.swift; sourceTree = "<group>"; };
+		F11748442D0722820044C1D9 /* Sporttag-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.h; name = "Sporttag-Bridging-Header.h"; path = "Sporttag/Sporttag-Bridging-Header.h"; sourceTree = "<group>"; };
+		F4F43B2E0D0A04AA232DD4F2 /* Pods-Sporttag.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Sporttag.debug.xcconfig"; path = "Target Support Files/Pods-Sporttag/Pods-Sporttag.debug.xcconfig"; sourceTree = "<group>"; };
+		FC55633B3CC5A132C050BEE0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = Sporttag/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		XX470101BAEB8E0BBC8B0DXX /* WidgetKit.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		XX474B7A5C6893FDBBAD94XX /* SporttagWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; fileEncoding = 4; includeInIndex = 0; path = SporttagWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		XX4DFF38D47332D6BF0183XX /* SwiftUI.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		XXA12889081EB894481655XX /* AppIntents.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
+		XXCAF23C3FC41F82140FA1XX /* ActivityKit.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		XX7A1F0572BFE5B2043703XX /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"expo-target.config.js",
+				Info.plist,
+			);
+			target = XX135305598D66096A566CXX /* SporttagWidgets */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		XXCB693858C3DD5D6EDFC2XX /* widget */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (XX7A1F0572BFE5B2043703XX /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = widget; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		13B07F8C1A680F5B00A75B9A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5D9E792830625D8600FC87A3 /* MapLibre in Frameworks */,
-				EEE5AD2B9BDBC0DAFFCB4464 /* libPods-Sporttag.a in Frameworks */,
+				5DFDE86730712C7800447467 /* MapLibre in Frameworks */,
+				2EF5B5CBDAC167BEAD6EBE3C /* libPods-Sporttag.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		XX074B8811C1CF8E8A3D74XX /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				XX12B55A1EDABF083C3B51XX /* WidgetKit.framework in Frameworks */,
+				XX6A44985675A04437B8C4XX /* SwiftUI.framework in Frameworks */,
+				XX3C562DEF346B45594832XX /* ActivityKit.framework in Frameworks */,
+				XX1A6800511A685AB346D2XX /* AppIntents.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -57,8 +117,8 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				3725C343A78447F1A9EC882B /* Sporttag.icon */,
-				5B06FFD0C68195E2B7516AAB /* PrivacyInfo.xcprivacy */,
+				33752035C3564AD8841F5466 /* Sporttag.icon */,
+				FC55633B3CC5A132C050BEE0 /* PrivacyInfo.xcprivacy */,
 			);
 			name = Sporttag;
 			sourceTree = "<group>";
@@ -67,17 +127,13 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				765D0DF1CC9A2BBC5C2883CE /* libPods-Sporttag.a */,
+				XX470101BAEB8E0BBC8B0DXX /* WidgetKit.framework */,
+				XX4DFF38D47332D6BF0183XX /* SwiftUI.framework */,
+				XXCAF23C3FC41F82140FA1XX /* ActivityKit.framework */,
+				XXA12889081EB894481655XX /* AppIntents.framework */,
+				6F9C10865321349DD06562A7 /* libPods-Sporttag.a */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		36E2AFE55EBBC1E9DE76EE40 /* Sporttag */ = {
-			isa = PBXGroup;
-			children = (
-				A306AA1C8C6B130A8356D69B /* ExpoModulesProvider.swift */,
-			);
-			name = Sporttag;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -90,12 +146,13 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
+				XX3E41C1850246162C0061XX /* expo:targets */,
 				13B07FAE1A68108700A75B9A /* Sporttag */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				988AB50CC67E6C63F08462F0 /* Pods */,
-				E577430292B9DF81222BADA0 /* ExpoModulesProviders */,
+				CBC40CA732D4D6C40AC34CE2 /* Pods */,
+				DB80DA70C10F35F7ECC5F7EA /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -106,17 +163,17 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* Sporttag.app */,
+				XX474B7A5C6893FDBBAD94XX /* SporttagWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		988AB50CC67E6C63F08462F0 /* Pods */ = {
+		8EE312C6E7F0B7E04667F178 /* Sporttag */ = {
 			isa = PBXGroup;
 			children = (
-				FD63D2F8B5F7DE7AB38BA519 /* Pods-Sporttag.debug.xcconfig */,
-				A35FA10477DEA83E58755613 /* Pods-Sporttag.release.xcconfig */,
+				D26E967DDEBB2BAD7915F4F3 /* ExpoModulesProvider.swift */,
 			);
-			path = Pods;
+			name = Sporttag;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -128,12 +185,30 @@
 			path = Sporttag/Supporting;
 			sourceTree = "<group>";
 		};
-		E577430292B9DF81222BADA0 /* ExpoModulesProviders */ = {
+		CBC40CA732D4D6C40AC34CE2 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				36E2AFE55EBBC1E9DE76EE40 /* Sporttag */,
+				F4F43B2E0D0A04AA232DD4F2 /* Pods-Sporttag.debug.xcconfig */,
+				0F2338E74CA5B1485DAE7F8F /* Pods-Sporttag.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
+		DB80DA70C10F35F7ECC5F7EA /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				8EE312C6E7F0B7E04667F178 /* Sporttag */,
 			);
 			name = ExpoModulesProviders;
+			sourceTree = "<group>";
+		};
+		XX3E41C1850246162C0061XX /* expo:targets */ = {
+			isa = PBXGroup;
+			children = (
+				XXCB693858C3DD5D6EDFC2XX /* widget */,
+			);
+			name = "expo:targets";
+			path = ../targets;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -144,26 +219,48 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Sporttag" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				D5BA65DC22649253C84B7100 /* [Expo] Configure project */,
+				A1E6CB5AC53EB5B21ECCB26F /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				1E046542C1DDC581C39272BA /* [MapLibre React Native] Remove MapLibre.xcframework-ios.signature */,
-				BBB3F485E6CE043E9770E616 /* [CP] Embed Pods Frameworks */,
+				XX72A8CFBF0FBA13A79902XX /* Embed Foundation Extensions */,
+				932E8FA773987A396746A667 /* [MapLibre React Native] Remove MapLibre.xcframework-ios.signature */,
+				865EC046F2A680BBC602383F /* [CP] Embed Pods Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				XX60DB7E3F57CA382F814BXX /* PBXTargetDependency */,
+			);
+			name = Sporttag;
+			packageProductDependencies = (
+				6A7437091CF5AA88EAE22C61 /* MapLibre */,
+			);
+			productName = Sporttag;
+			productReference = 13B07F961A680F5B00A75B9A /* Sporttag.app */;
+			productType = "com.apple.product-type.application";
+		};
+		XX135305598D66096A566CXX /* SporttagWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = XX14EFC9CE0A7EE974A4F0XX /* Build configuration list for PBXNativeTarget "SporttagWidgets" */;
+			buildPhases = (
+				XX074B8811C1CF8E8A3D74XX /* Frameworks */,
+				XXE45443DC38DCFE1DB622XX /* Sources */,
+				XXFA5A8CCDD805DF7AEF9CXX /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = Sporttag;
-			packageProductDependencies = (
-				C81350CA318319F305172431 /* MapLibre */,
+			fileSystemSynchronizedGroups = (
+				XXCB693858C3DD5D6EDFC2XX /* widget */,
 			);
-			productName = Sporttag;
-			productReference = 13B07F961A680F5B00A75B9A /* Sporttag.app */;
-			productType = "com.apple.product-type.application";
+			name = SporttagWidgets;
+			productName = SporttagWidgets;
+			productReference = XX474B7A5C6893FDBBAD94XX /* SporttagWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -175,6 +272,10 @@
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
 						LastSwiftMigration = 1250;
+					};
+					XX135305598D66096A566CXX = {
+						CreatedOnToolsVersion = 14.3;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -188,13 +289,14 @@
 			);
 			mainGroup = 83CBB9F61A601CBA00E9B192;
 			packageReferences = (
-				5968B1F4711AAECE34274263 /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */,
+				8B863A67715BF8A2AA04AB3D /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */,
 			);
 			productRefGroup = 83CBBA001A601CBA00E9B192 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* Sporttag */,
+				XX135305598D66096A566CXX /* SporttagWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -207,8 +309,15 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				0BC945FDB7A34A598FEEA08C /* Sporttag.icon in Resources */,
-				D88CD765337DEAB3E40C30E5 /* PrivacyInfo.xcprivacy in Resources */,
+				3DD15CF7385745AEBC683DED /* Sporttag.icon in Resources */,
+				F69EF5EC6F1C2A97CCE4ACA5 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		XXFA5A8CCDD805DF7AEF9CXX /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -221,11 +330,15 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
+			inputFileListPaths = (
+			);
 			inputPaths = (
 				"$(SRCROOT)/.xcode.env",
 				"$(SRCROOT)/.xcode.env.local",
 			);
 			name = "Bundle React Native code and images";
+			outputFileListPaths = (
+			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -253,25 +366,6 @@
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
-		};
-		1E046542C1DDC581C39272BA /* [MapLibre React Native] Remove MapLibre.xcframework-ios.signature */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "[MapLibre React Native] Remove MapLibre.xcframework-ios.signature";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "rm -rf \"$CONFIGURATION_BUILD_DIR/MapLibre.xcframework-ios.signature\"";
 		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -305,7 +399,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Sporttag/Pods-Sporttag-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		BBB3F485E6CE043E9770E616 /* [CP] Embed Pods Frameworks */ = {
+		865EC046F2A680BBC602383F /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -337,7 +431,26 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Sporttag/Pods-Sporttag-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		D5BA65DC22649253C84B7100 /* [Expo] Configure project */ = {
+		932E8FA773987A396746A667 /* [MapLibre React Native] Remove MapLibre.xcframework-ios.signature */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "[MapLibre React Native] Remove MapLibre.xcframework-ios.signature";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "rm -rf \"$CONFIGURATION_BUILD_DIR/MapLibre.xcframework-ios.signature\"";
+		};
+		A1E6CB5AC53EB5B21ECCB26F /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -369,16 +482,31 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				98118A81E5C32E5FC443414F /* ExpoModulesProvider.swift in Sources */,
+				246ECF4AFFFC3C8F30B43221 /* ExpoModulesProvider.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		XXE45443DC38DCFE1DB622XX /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		XX60DB7E3F57CA382F814BXX /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = XX135305598D66096A566CXX /* SporttagWidgets */;
+			targetProxy = XXBFCD8CBA8ED50C2A1153XX /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = FD63D2F8B5F7DE7AB38BA519 /* Pods-Sporttag.debug.xcconfig */;
+			baseConfigurationReference = F4F43B2E0D0A04AA232DD4F2 /* Pods-Sporttag.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Sporttag;
 				CLANG_ENABLE_MODULES = YES;
@@ -397,14 +525,14 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.4;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = com.joelwolf.sporttag;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.sporttag;
 				PRODUCT_NAME = Sporttag;
 				SWIFT_OBJC_BRIDGING_HEADER = "Sporttag/Sporttag-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -416,7 +544,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = A35FA10477DEA83E58755613 /* Pods-Sporttag.release.xcconfig */;
+			baseConfigurationReference = 0F2338E74CA5B1485DAE7F8F /* Pods-Sporttag.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Sporttag;
 				CLANG_ENABLE_MODULES = YES;
@@ -430,14 +558,14 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.4;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = com.joelwolf.sporttag;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.sporttag;
 				PRODUCT_NAME = Sporttag;
 				SWIFT_OBJC_BRIDGING_HEADER = "Sporttag/Sporttag-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
@@ -582,6 +710,90 @@
 			};
 			name = Release;
 		};
+		XX17209B56B0101D98F156XX /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = .targets/SporttagWidgets/generated.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = PTVJGQ958K;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ../targets/widget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SporttagWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.sporttag.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		XX835B8EE812CC2683DF36XX /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = .targets/SporttagWidgets/generated.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = PTVJGQ958K;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ../targets/widget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SporttagWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				MTL_FAST_MATH = YES;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.sporttag.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -603,10 +815,19 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		XX14EFC9CE0A7EE974A4F0XX /* Build configuration list for PBXNativeTarget "SporttagWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				XX17209B56B0101D98F156XX /* Debug */,
+				XX835B8EE812CC2683DF36XX /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		5968B1F4711AAECE34274263 /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */ = {
+		8B863A67715BF8A2AA04AB3D /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/maplibre/maplibre-gl-native-distribution";
 			requirement = {
@@ -617,9 +838,9 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		C81350CA318319F305172431 /* MapLibre */ = {
+		6A7437091CF5AA88EAE22C61 /* MapLibre */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 5968B1F4711AAECE34274263 /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */;
+			package = 8B863A67715BF8A2AA04AB3D /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */;
 			productName = MapLibre;
 		};
 /* End XCSwiftPackageProductDependency section */

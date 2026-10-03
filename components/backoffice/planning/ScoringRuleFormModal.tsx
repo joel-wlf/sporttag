@@ -16,6 +16,7 @@ import {
 const modeOptions: { value: ScoringMode; label: string; description: string }[] = [
   { value: 'win_draw_loss', label: 'Sieg / Unentschieden / Niederlage', description: 'Für Zweiermatches.' },
   { value: 'placement', label: 'Platzierung', description: 'Punkte je Platz, z. B. für Mehrteamspiele.' },
+  { value: 'raw_value', label: 'Rohpunkte', description: 'Gezählter Wert mal Faktor, nur für Spiele mit Zahlwert.' },
 ];
 
 type PlacePoint = { place: string; points: string };
@@ -35,6 +36,7 @@ function initialStateFor(rule: ScoringRuleRow | 'new' | null) {
       loss: '0',
       places: [{ place: '1', points: '3' }] as PlacePoint[],
       unlistedPoints: '0',
+      factor: '1',
     };
   }
   const config = rule.config as Record<string, unknown>;
@@ -47,6 +49,7 @@ function initialStateFor(rule: ScoringRuleRow | 'new' | null) {
     loss: String(config.loss ?? 0),
     places: Object.entries(byPlace).map(([place, points]) => ({ place, points: String(points) })),
     unlistedPoints: String(config.unlisted_points ?? 0),
+    factor: String(config.factor ?? 1),
   };
 }
 
@@ -69,6 +72,7 @@ export function ScoringRuleFormModal({
   const [loss, setLoss] = useState(initial.loss);
   const [places, setPlaces] = useState<PlacePoint[]>(initial.places);
   const [unlistedPoints, setUnlistedPoints] = useState(initial.unlistedPoints);
+  const [factor, setFactor] = useState(initial.factor);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
@@ -80,6 +84,13 @@ export function ScoringRuleFormModal({
     let config: Record<string, unknown>;
     if (mode === 'win_draw_loss') {
       config = { win: Number(win) || 0, draw: Number(draw) || 0, loss: Number(loss) || 0 };
+    } else if (mode === 'raw_value') {
+      const parsed = Number(factor.replace(',', '.'));
+      if (!Number.isFinite(parsed) || parsed === 0) {
+        setError('Der Faktor muss eine Zahl ungleich 0 sein, z. B. 1 oder 0,5.');
+        return;
+      }
+      config = { factor: parsed };
     } else {
       const pointsByPlace: Record<string, number> = {};
       for (const p of places) {
@@ -137,6 +148,20 @@ export function ScoringRuleFormModal({
           <View className="flex-1">
             <Field keyboardType="number-pad" label="Niederlage" onChangeText={setLoss} value={loss} />
           </View>
+        </View>
+      ) : mode === 'raw_value' ? (
+        <View className="gap-3">
+          <Field
+            keyboardType="decimal-pad"
+            label="Faktor"
+            onChangeText={setFactor}
+            placeholder="1"
+            value={factor}
+          />
+          <Text className="text-[13px] text-subtle">
+            Jedes Team erhält seinen gezählten Wert mal Faktor als Tabellenpunkte. Platzierungen
+            zählen dabei nicht.
+          </Text>
         </View>
       ) : (
         <View className="gap-3">

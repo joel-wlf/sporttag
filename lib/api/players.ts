@@ -100,7 +100,12 @@ export function useUpsertPlayer(eventId: string) {
       const { error } = await supabase
         .from('player_attributes')
         .upsert(attributesRow(eventId, playerId, input), { onConflict: 'player_id' });
-      if (error) throw error;
+      if (error) {
+        // Neu angelegt, aber ohne Eigenschaften: wieder entfernen, sonst legt
+        // ein erneuter Versuch den Spieler doppelt an.
+        if (!input.id) await supabase.from('players').delete().eq('id', playerId);
+        throw error;
+      }
       return playerId;
     },
     onSettled: () => {
@@ -140,7 +145,12 @@ export function useImportPlayers(eventId: string) {
         .map(({ id, input }) => attributesRow(eventId, id, { ...input, locked: false, notes: null }));
       if (attributes.length > 0) {
         const { error: attrError } = await supabase.from('player_attributes').insert(attributes);
-        if (attrError) throw attrError;
+        if (attrError) {
+          // Import als Ganzes zurücknehmen: ein erneuter Import legte sonst
+          // alle Spieler doppelt an.
+          await supabase.from('players').delete().in('id', withIds.map(({ id }) => id));
+          throw attrError;
+        }
       }
       return withIds.length;
     },

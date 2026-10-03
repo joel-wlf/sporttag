@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { haptic } from '@/lib/haptics';
 import { Icon, type IconName } from './Icon';
@@ -110,13 +110,24 @@ export function EditableCell({
   subtle?: boolean;
 }) {
   const [draft, setDraft] = useState(value);
-
-  useEffect(() => {
+  // Neuer Wert von außen (z. B. nach Speichern oder Realtime): Entwurf während
+  // des Renderns angleichen statt per Effekt, kein zusätzlicher Renderdurchlauf.
+  const [seenValue, setSeenValue] = useState(value);
+  // Zuletzt gesendeter Entwurf: Enter speichert, das anschließende Verlassen
+  // des Felds löste sonst mit demselben Text ein zweites Speichern aus (der
+  // neue Wert war noch nicht zurück) – doppelte Schreibzugriffe und bei
+  // veröffentlichten Events doppelt erhöhte Planversion.
+  const [sent, setSent] = useState<string | null>(null);
+  if (value !== seenValue) {
+    setSeenValue(value);
     setDraft(value);
-  }, [value]);
+    setSent(null);
+  }
 
   const commit = () => {
-    if (draft !== value) onCommit(draft);
+    if (draft === value || draft === sent) return;
+    setSent(draft);
+    onCommit(draft);
   };
 
   return (

@@ -1,8 +1,9 @@
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { Card } from '@/components/ui/Card';
 import { Icon } from '@/components/ui/Icon';
 import { useTokens } from '@/components/ui/theme';
 import { useDesktop } from '@/components/ui/useDesktop';
+import { ViewSwitch } from '@/components/ui/ViewSwitch';
 import { delayTone, formatDelay, formatDuration, type Timeline } from '@/lib/live/timeline';
 import { GanttLegend, TimelineGantt, type GanttMode } from './TimelineGantt';
 
@@ -24,32 +25,16 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: '
 }
 
 function ModeToggle({ value, onChange }: { value: GanttMode; onChange: (next: GanttMode) => void }) {
-  const options: { key: GanttMode; label: string }[] = [
-    { key: 'station', label: 'Nach Station' },
-    { key: 'team', label: 'Nach Gruppe' },
-  ];
   return (
-    <View className="flex-row gap-2">
-      {options.map((option) => {
-        const active = value === option.key;
-        return (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ selected: active }}
-            className={[
-              'rounded-full border px-3.5 py-2',
-              active ? 'border-primary bg-primary' : 'border-line bg-surface',
-            ].join(' ')}
-            key={option.key}
-            onPress={() => onChange(option.key)}
-          >
-            <Text className={['text-[13px] font-bold', active ? 'text-on-primary' : 'text-ink'].join(' ')}>
-              {option.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
+    <ViewSwitch
+      accessibilityLabel="Zeitleiste gliedern"
+      onChange={onChange}
+      options={[
+        { value: 'station', label: 'Nach Station' },
+        { value: 'team', label: 'Nach Gruppe' },
+      ]}
+      value={value}
+    />
   );
 }
 
@@ -104,6 +89,16 @@ export function TimelinePanel({
           <Text className="flex-1 text-[13px] font-semibold text-warning">
             {behind} {behind === 1 ? 'Gruppe hängt' : 'Gruppen hängen'} deutlich hinterher. Der Plan verschiebt sich —
             das ist normal, solange der Abstand nicht weiter wächst.
+          </Text>
+        </View>
+      ) : null}
+
+      {timeline.offPlanCount > 0 ? (
+        <View className="flex-row items-center gap-2 rounded-2xl bg-surface-muted px-4 py-3">
+          <Icon color={tokens.subtle} name="clock" size={16} />
+          <Text className="flex-1 text-[13px] text-ink">
+            {timeline.offPlanCount === 1 ? '1 Ankunft liegt' : `${timeline.offPlanCount} Ankünfte liegen`} über eine Stunde vor
+            der aktuellen Planzeit – der Zeitplan wurde vermutlich danach verschoben. Sie zählen nicht zum Verzug.
           </Text>
         </View>
       ) : null}

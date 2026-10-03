@@ -87,8 +87,10 @@ export function buildMatrix(input: {
 
   for (const round of rounds) {
     if (round.kind === 'break') {
+      // Eine Pause innerhalb eines Blocks beendet den Block nicht: früher
+      // erschien danach ein zweiter Kopf desselben Blocks mit neuer Nummer,
+      // und alle folgenden Blöcke waren um eins verschoben.
       rows.push({ kind: 'break', round });
-      lastBlock = null;
       continue;
     }
     if (round.block_id !== lastBlock) {

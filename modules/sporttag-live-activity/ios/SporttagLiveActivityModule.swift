@@ -19,13 +19,39 @@ struct MatchActivityAttributes: ActivityAttributes {
 // targets/widget/EventHealthLiveActivity.swift übereinstimmen.
 struct EventHealthActivityAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
-        var summary: String
-        var attentionCount: Int
+        var attention: Int
+        var running: Int
+        var ready: Int
+        var done: Int
+        var other: Int
+        var topIssue: String?
+        var topIssueReason: String?
+        var roundLabel: String?
         var roundEndsAt: Date?
     }
 
     var eventName: String
     var deepLinkUrl: String
+}
+
+struct EventHealthStateRecord: Record {
+    @Field var attention: Int = 0
+    @Field var running: Int = 0
+    @Field var ready: Int = 0
+    @Field var done: Int = 0
+    @Field var other: Int = 0
+    @Field var topIssue: String? = nil
+    @Field var topIssueReason: String? = nil
+    @Field var roundLabel: String? = nil
+    @Field var roundEndsAtMs: Double? = nil
+
+    var contentState: EventHealthActivityAttributes.ContentState {
+        EventHealthActivityAttributes.ContentState(
+            attention: attention, running: running, ready: ready, done: done, other: other,
+            topIssue: topIssue, topIssueReason: topIssueReason,
+            roundLabel: roundLabel, roundEndsAt: dateFrom(roundEndsAtMs)
+        )
+    }
 }
 
 private func dateFrom(_ ms: Double?) -> Date? {
@@ -85,7 +111,7 @@ public class SporttagLiveActivityModule: Module {
 
         // MARK: Event health activity (Backoffice)
 
-        Function("startEventHealthActivity") { (eventName: String, deepLinkUrl: String, summary: String, attentionCount: Int, roundEndsAtMs: Double?) -> Bool in
+        Function("startEventHealthActivity") { (eventName: String, deepLinkUrl: String, record: EventHealthStateRecord) -> Bool in
             guard #available(iOS 16.2, *) else { return false }
             Task {
                 for activity in Activity<EventHealthActivityAttributes>.activities {
@@ -93,7 +119,7 @@ public class SporttagLiveActivityModule: Module {
                 }
             }
             let attributes = EventHealthActivityAttributes(eventName: eventName, deepLinkUrl: deepLinkUrl)
-            let state = EventHealthActivityAttributes.ContentState(summary: summary, attentionCount: attentionCount, roundEndsAt: dateFrom(roundEndsAtMs))
+            let state = record.contentState
             do {
                 _ = try Activity.request(attributes: attributes, content: ActivityContent(state: state, staleDate: nil))
                 return true
@@ -102,9 +128,9 @@ public class SporttagLiveActivityModule: Module {
             }
         }
 
-        Function("updateEventHealthActivity") { (summary: String, attentionCount: Int, roundEndsAtMs: Double?) -> Void in
+        Function("updateEventHealthActivity") { (record: EventHealthStateRecord) -> Void in
             guard #available(iOS 16.2, *) else { return }
-            let state = EventHealthActivityAttributes.ContentState(summary: summary, attentionCount: attentionCount, roundEndsAt: dateFrom(roundEndsAtMs))
+            let state = record.contentState
             Task {
                 for activity in Activity<EventHealthActivityAttributes>.activities {
                     await activity.update(ActivityContent(state: state, staleDate: nil))
@@ -119,6 +145,12 @@ public class SporttagLiveActivityModule: Module {
                     await activity.end(nil, dismissalPolicy: .immediate)
                 }
             }
+        }
+
+        // Nutzer können die Aktivität vom Sperrbildschirm wegwischen; das erfährt JS sonst nicht.
+        Function("isEventHealthActivityRunning") { () -> Bool in
+            guard #available(iOS 16.2, *) else { return false }
+            return Activity<EventHealthActivityAttributes>.activities.contains { $0.activityState == .active }
         }
     }
 }

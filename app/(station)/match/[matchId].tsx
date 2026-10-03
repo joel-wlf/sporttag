@@ -7,19 +7,46 @@ import { ArrivalStrip, type ArrivalRow } from '@/components/station/ArrivalStrip
 import { ContextBar } from '@/components/station/ContextBar';
 import { RosterSheet, type RosterTeam } from '@/components/station/RosterSheet';
 import { ToolStrip } from '@/components/station/Tools';
-import { StatusBadge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useTokens } from '@/components/ui/theme';
 import { friendlyErrorMessage } from '@/lib/api/errors';
 import { haptic } from '@/lib/haptics';
-import { teamName, teamRoster } from '@/lib/station/package';
-import { buildNumberPayload, buildOutcomePayload, buildPlacementPayload } from '@/lib/station/scoring';
+import { isResultWithdrawn, teamName, teamRoster } from '@/lib/station/package';
+import {
+  buildNumberPayload,
+  buildOutcomePayload,
+  buildPlacementPayload,
+  hasBlockingTie,
+  placementModeFor,
+  rewardedPlaces,
+} from '@/lib/station/scoring';
 import type { PackageGame, PackageMatch, ResultPayloadValue } from '@/lib/station/types';
 import { useStationSession } from '@/providers/StationSessionProvider';
 
 type Participant = { id: string; name: string };
+
+/** Obergrenze für Messwerte; die Datenbank speichert numeric(14,4). */
+const MAX_MEASURED = 1_000_000;
+
+/** Messwert mit deutschem Dezimalkomma, ohne überflüssige Nachkommastellen. */
+function formatMeasured(value: number) {
+  return String(Math.round(value * 10000) / 10000).replace('.', ',');
+}
+
+/**
+ * Liest eine Eingabe wie "23,5" oder "23.5". Meter und Sekunden brauchen
+ * Nachkommastellen; `parseInt` schnitt sie bisher stillschweigend ab.
+ * Ungültige oder unplausible Eingaben ergeben `null` (alter Wert bleibt).
+ */
+function parseMeasured(input: string): number | null {
+  const normalized = input.trim().replace(',', '.');
+  if (!/^\d+(\.\d*)?$|^\.\d+$/.test(normalized)) return null;
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > MAX_MEASURED) return null;
+  return Math.round(parsed * 10000) / 10000;
+}
 
 function measurementLabel(game: PackageGame, teamCount: number) {
   if (game.measurement_type === 'number') {
@@ -106,11 +133,20 @@ function NumberPad({
   onChange: (next: number) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(String(value));
+  const [draft, setDraft] = useState(formatMeasured(value));
+
+  // Jede gültige Eingabe gilt sofort: Zahlentastaturen haben auf iOS keine
+  // Eingabetaste, und ein Tipp auf "Ergebnis speichern" nimmt dem Feld den
+  // Fokus nicht — sonst würde der alte Wert gespeichert.
+  const changeDraft = (text: string) => {
+    setDraft(text);
+    const parsed = parseMeasured(text);
+    if (parsed !== null && parsed !== value) onChange(parsed);
+  };
 
   const commit = () => {
-    const parsed = Number.parseInt(draft, 10);
-    onChange(Number.isFinite(parsed) ? Math.max(0, parsed) : value);
+    const parsed = parseMeasured(draft);
+    if (parsed !== null && parsed !== value) onChange(parsed);
     setEditing(false);
   };
 
@@ -120,39 +156,62 @@ function NumberPad({
         {team.name}
       </Text>
       <Pressable
-        accessibilityLabel={`${team.name} Wert bearbeiten`}
+        accessibilityLabel={`${team.name}: ${value}${unit ? ` ${unit}` : ''}. Tippen, um den Wert einzugeben`}
+        accessibilityRole="button"
         className="items-center"
         onPress={() => {
-          setDraft(String(value));
+          // Bei 0 leer starten: sonst wird aus "0" beim Tippen "09".
+          setDraft(value === 0 ? '' : formatMeasured(value));
           setEditing(true);
         }}
       >
         {editing ? (
+          // textAlign als Style statt `text-center`: react-native-css 3.0.4
+          // stürzt bei `text-center` auf einem nativen TextInput ab
+          // ("undefined is not a function" in der nativeStyleMapping).
           <TextInput
             autoFocus
-            className="w-full text-center text-stat-lg font-extrabold leading-[60px] tracking-[-2px] text-ink"
-            keyboardType="number-pad"
+            className="w-full text-stat-lg font-extrabold leading-[60px] tracking-[-2px] text-ink"
+            keyboardType="decimal-pad"
             onBlur={commit}
-            onChangeText={setDraft}
+            onChangeText={changeDraft}
             onSubmitEditing={commit}
             selectTextOnFocus
+            style={{ textAlign: 'center' }}
             value={draft}
           />
         ) : (
-          <Text className="text-stat-lg font-extrabold leading-[60px] tracking-[-2px] text-ink">{value}</Text>
+          <Text className="text-stat-lg font-extrabold leading-[60px] tracking-[-2px] text-ink">
+            {formatMeasured(value)}
+          </Text>
         )}
       </Pressable>
       {unit ? <Text className="text-center text-2xs text-subtle">{unit}</Text> : null}
       <View className="flex-row gap-2">
         <Button
+          accessibilityLabel={`${team.name} minus eins`}
           className="flex-1"
           haptic="medium"
+          isDisabled={value <= 0}
           label="−"
-          onPress={() => onChange(Math.max(0, value - 1))}
+          onPress={() => {
+            setEditing(false);
+            onChange(Math.max(0, value - 1));
+          }}
           size="lg"
           variant="outline"
         />
-        <Button className="flex-1" haptic="medium" label="+" onPress={() => onChange(value + 1)} size="lg" />
+        <Button
+          accessibilityLabel={`${team.name} plus eins`}
+          className="flex-1"
+          haptic="medium"
+          label="+"
+          onPress={() => {
+            setEditing(false);
+            onChange(value + 1);
+          }}
+          size="lg"
+        />
       </View>
     </View>
   );
@@ -193,7 +252,11 @@ function OutcomeSegments({
           }}
         >
           {option.key !== 'draw' ? (
-            <Icon color={value === option.key ? tokens.primary : tokens.subtle} name="trophy" size={20} />
+            <Icon
+              color={value === option.key ? tokens.primary : tokens.subtle}
+              name="trophy"
+              size={20}
+            />
           ) : null}
           <Text
             className={[
@@ -232,14 +295,21 @@ function PlacementList({
       <View className="flex-row gap-2">
         {(['winner', 'top3'] as const).map((option) => (
           <Pressable
+            accessibilityRole="radio"
+            accessibilityState={{ selected: mode === option }}
             className={[
-              'flex-1 items-center rounded-control border px-3 py-2',
+              'min-h-[44px] flex-1 items-center justify-center rounded-control border px-3 py-2',
               mode === option ? 'border-primary bg-primary-soft' : 'border-line bg-surface',
             ].join(' ')}
             key={option}
             onPress={() => onModeChange(option)}
           >
-            <Text className={['text-xs font-bold', mode === option ? 'text-primary' : 'text-subtle'].join(' ')}>
+            <Text
+              className={[
+                'text-xs font-bold',
+                mode === option ? 'text-primary' : 'text-subtle',
+              ].join(' ')}
+            >
               {option === 'winner' ? 'Nur Gewinner' : 'Top 3'}
             </Text>
           </Pressable>
@@ -251,7 +321,9 @@ function PlacementList({
           const fallback = mode === 'winner' ? 2 : 4;
           return (
             <Pressable
-              className="flex-row items-center gap-3 rounded-control border border-line bg-surface px-3 py-3 active:bg-primary-soft"
+              accessibilityLabel={`${team.name}, ${place ? `Platz ${place}` : 'ohne Platzierung'}`}
+              accessibilityRole="button"
+              className="min-h-[48px] flex-row items-center gap-3 rounded-control border border-line bg-surface px-3 py-3 active:bg-primary-soft"
               key={team.id}
               onPress={() => {
                 haptic('medium');
@@ -268,7 +340,12 @@ function PlacementList({
                 {place === 1 ? (
                   <Icon color={tokens.onPrimary} name="trophy" size={15} />
                 ) : (
-                  <Text className={['text-xs font-extrabold', place ? 'text-on-primary' : 'text-subtle'].join(' ')}>
+                  <Text
+                    className={[
+                      'text-xs font-extrabold',
+                      place ? 'text-on-primary' : 'text-subtle',
+                    ].join(' ')}
+                  >
                     {place ?? fallback}
                   </Text>
                 )}
@@ -283,22 +360,40 @@ function PlacementList({
 
 export default function MatchResultScreen() {
   const router = useRouter();
+  const tokens = useTokens();
   const { matchId, station, block } = useLocalSearchParams<{
     matchId: string;
     setupId?: string;
     station?: string;
     block?: string;
   }>();
-  const { pkg, activeCheckin, saveResult, setLiveValues, setTeamVisit, syncCounts, liveStates, teamVisits } =
-    useStationSession();
+  const {
+    pkg,
+    activeCheckin,
+    checkIn,
+    saveResult,
+    setLiveValues,
+    setTeamVisit,
+    syncCounts,
+    matchSync,
+    liveStates,
+    teamVisits,
+  } = useStationSession();
+  // Per Live-Activity-Deeplink geöffnet gibt es keinen Stapel darunter.
+  const goBack = () => (router.canGoBack() ? router.back() : router.replace('/assignment'));
 
   const match: PackageMatch | undefined = pkg?.matches.find((m) => m.id === matchId);
-  const setup = match ? pkg?.station_setups.find((s) => s.id === match.station_setup_id) : undefined;
+  const setup = match
+    ? pkg?.station_setups.find((s) => s.id === match.station_setup_id)
+    : undefined;
   const game = setup ? pkg?.event_games.find((g) => g.id === setup.event_game_id) : undefined;
   const round = match ? pkg?.rounds.find((r) => r.id === match.round_id) : undefined;
 
   const teams: Participant[] = useMemo(
-    () => (match && pkg ? match.participants.map((p) => ({ id: p.id, name: teamName(pkg, p.team_id) })) : []),
+    () =>
+      match && pkg
+        ? match.participants.map((p) => ({ id: p.id, name: teamName(pkg, p.team_id) }))
+        : [],
     [match, pkg],
   );
 
@@ -313,20 +408,46 @@ export default function MatchResultScreen() {
   const [rosterOpen, setRosterOpen] = useState(false);
 
   const existingValue = match
-    ? pkg?.current_result_values.filter((v) => v.match_id === match.id && v.version === match.current_result_version)
+    ? pkg?.current_result_values.filter(
+        (v) => v.match_id === match.id && v.version === match.current_result_version,
+      )
     : [];
-  const isCorrection = Boolean(match && match.current_result_version > 0);
+  // Auch eine eigene, noch nicht (oder gerade erst) übertragene Abgabe macht
+  // jede weitere Eingabe zur Korrektur: der Server nimmt nur eine Abgabe je
+  // Ergebnisstand an, die zweite landet zur Klärung bei der Leitung.
+  const localSubmission = match ? matchSync[match.id] : undefined;
+  // Nach einem Rückzug durch die Leitung ist die Version > 0, aber leer: dann
+  // ist eine neue Eingabe wieder eine Erstabgabe.
+  const hasServerResult = Boolean(existingValue && existingValue.length > 0);
+  // Nach einem Rückzug ist die eigene frühere Abgabe erledigt: eine neue
+  // Eingabe ist wieder eine Erstabgabe ohne Korrekturgrund.
+  const withdrawn = Boolean(match && pkg && isResultWithdrawn(pkg, match));
+  const isCorrection = Boolean(match && (hasServerResult || (localSubmission && !withdrawn)));
   const isMultiTeam = teams.length > 2;
 
-  const [values, setValues] = useState<Record<string, number>>({});
+  // Zählerstände kommen aus dem geteilten Live-Stand: Zählt eine andere Person
+  // ein anderes Team, erscheint ihr Wert hier, ohne dass eigene Eingaben
+  // überschrieben werden (siehe lib/station/liveMerge.ts).
+  const liveEntries = match ? liveStates[match.id]?.values : undefined;
+  const values = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const v of liveEntries ?? []) {
+      if (v.measured_value != null) out[v.participant_id] = v.measured_value;
+    }
+    return out;
+  }, [liveEntries]);
   const [outcome, setOutcome] = useState<'home' | 'draw' | 'away' | null>(null);
-  const [mode, setMode] = useState<PlacementMode>('winner');
+  // Standard aus der Wertungsregel des Spiels; die Station kann umschalten.
+  const [modeOverride, setMode] = useState<PlacementMode | null>(null);
+  const mode: PlacementMode =
+    modeOverride ?? (pkg && match && game ? placementModeFor(pkg, match, game) : 'top3');
   const [placements, setPlacements] = useState<Record<string, number>>({});
   const [reason, setReason] = useState('');
   const [showTools, setShowTools] = useState(true);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -344,16 +465,14 @@ export default function MatchResultScreen() {
   useEffect(() => {
     if (!match || !game) return;
     const live = liveStates[match.id];
+    // Zählerspiele lesen den Live-Stand direkt (`values`), nicht über Felder.
+    if (game.measurement_type === 'number') return;
     if (!live || live.values.length === 0 || appliedLiveRef.current === live.updatedAt) return;
     appliedLiveRef.current = live.updatedAt;
     if (isMultiTeam) {
       const next: Record<string, number> = {};
       for (const v of live.values) if (v.placement != null) next[v.participant_id] = v.placement;
       setPlacements(next);
-    } else if (game.measurement_type === 'number') {
-      const next: Record<string, number> = {};
-      for (const v of live.values) if (v.measured_value != null) next[v.participant_id] = v.measured_value;
-      setValues(next);
     } else {
       const home = live.values.find((v) => v.participant_id === match.participants[0]?.id);
       const away = live.values.find((v) => v.participant_id === match.participants[1]?.id);
@@ -367,7 +486,7 @@ export default function MatchResultScreen() {
   if (!pkg || !match || !game) {
     return (
       <Screen density="compact">
-        <ContextBar onBack={() => router.back()} title="Match nicht gefunden" />
+        <ContextBar onBack={goBack} title="Match nicht gefunden" />
         <EmptyState
           action={<Button label="Zum Tagesplan" onPress={() => router.replace('/assignment')} />}
           description="Dieses Match ist im Offline-Paket nicht (mehr) vorhanden. Zurück zum Tagesplan oder die Person wechseln."
@@ -378,6 +497,11 @@ export default function MatchResultScreen() {
     );
   }
 
+  // Ergebnisse gehören zur Belegung, an der das Gerät eingecheckt ist. Ein
+  // Check-in an einer anderen Station würde sie der falschen Station zuordnen.
+  const checkedInHere = Boolean(
+    activeCheckin && activeCheckin.stationSetupId === match.station_setup_id,
+  );
   const plannedStart = round ? new Date(round.starts_at).getTime() : null;
   const arrivalRows: ArrivalRow[] = match.participants.map((participant) => {
     const visit = teamVisits[participant.id];
@@ -387,7 +511,8 @@ export default function MatchResultScreen() {
       teamName: teamName(pkg, participant.team_id),
       arrivedAt,
       releasedAt: visit?.releasedAt ?? null,
-      delayMs: arrivedAt && plannedStart !== null ? new Date(arrivedAt).getTime() - plannedStart : null,
+      delayMs:
+        arrivedAt && plannedStart !== null ? new Date(arrivedAt).getTime() - plannedStart : null,
     };
   });
 
@@ -395,13 +520,19 @@ export default function MatchResultScreen() {
     void setLiveValues(match.id, payload, { started: true });
   };
 
+  // Nur der geänderte Zähler wird gemeldet: ein ganzer Stand würde die Zähler
+  // anderer Geräte mit veralteten Werten überschreiben.
   const changeValue = (participantId: string, next: number) => {
-    const nextValues = { ...values, [participantId]: next };
-    setValues(nextValues);
-    reportLive(buildNumberPayload(match, game, nextValues).values);
+    setSaved(false);
+    void setLiveValues(
+      match.id,
+      [{ participant_id: participantId, measured_value: next }],
+      { started: true, counter: true },
+    );
   };
 
   const changeOutcome = (next: 'home' | 'draw' | 'away') => {
+    setSaved(false);
     setOutcome(next);
     reportLive(buildOutcomePayload(match, next).values);
   };
@@ -424,6 +555,7 @@ export default function MatchResultScreen() {
   };
 
   const togglePlacement = (participantId: string) => {
+    setSaved(false);
     const next = computePlacements(placements, participantId);
     setPlacements(next);
     // Nur tatsächlich gesetzte Platzierungen melden; fehlende Teams bleiben im
@@ -435,27 +567,56 @@ export default function MatchResultScreen() {
     );
   };
 
-  const canConfirm = isMultiTeam
-    ? Object.keys(placements).length > 0
-    : game.measurement_type === 'number'
-      ? true
+  // Zahlspiele erst speichern, wenn mindestens ein Wert eingegeben wurde:
+  // sonst ging ein versehentliches 0 : 0 als Ergebnis durch.
+  const isNumber = game.measurement_type === 'number';
+  const numberTouched = Object.keys(values).length > 0;
+  // "Niedriger gewinnt" (z. B. Zeit): Ein nicht eingetragenes Team stand als
+  // 0 da und gewann damit. Hier muss jedes Team einen Wert haben.
+  const missingLowerValue =
+    isNumber &&
+    game.comparison_direction === 'lower' &&
+    teams.some((t) => values[t.id] === undefined);
+  const canConfirm = isNumber
+    ? numberTouched && !missingLowerValue
+    : isMultiTeam
+      ? Object.keys(placements).length > 0
       : outcome !== null;
+  // Spiele ohne Unentschieden: ein Zahlen-Gleichstand ist kein gültiges
+  // Ergebnis (der Server wertet es sonst als Unentschieden).
+  const numberTie =
+    isNumber &&
+    !game.allow_ties &&
+    (teams.length === 2
+      ? (values[teams[0].id] ?? 0) === (values[teams[1].id] ?? 0)
+      : hasBlockingTie(buildNumberPayload(match, game, values), rewardedPlaces(pkg, match, game)));
 
   const needsReason = isCorrection && reason.trim().length === 0;
 
   const confirm = async () => {
-    if (!activeCheckin) {
-      setError('Kein aktiver Check-in an dieser Station.');
+    // Doppeltipp: zweite Abgabe erst nach der ersten (sonst ein Konflikt).
+    if (savingRef.current) return;
+    if (!checkedInHere) {
+      setError('Erst an dieser Station einchecken, dann lässt sich das Ergebnis speichern.');
       return;
     }
     if (needsReason) return;
+    if (numberTie) {
+      setError(
+        isMultiTeam
+          ? 'Bei diesem Spiel gibt es keinen geteilten Platz unter den gewerteten Plätzen. Bitte den Gleichstand auflösen.'
+          : 'Bei diesem Spiel gibt es kein Unentschieden. Bitte den Gleichstand auflösen.',
+      );
+      return;
+    }
     setError(null);
     setSaving(true);
+    savingRef.current = true;
     try {
-      const payload = isMultiTeam
-        ? buildPlacementPayload(match, mode, placements)
-        : game.measurement_type === 'number'
-          ? buildNumberPayload(match, game, values)
+      const payload = isNumber
+        ? buildNumberPayload(match, game, values)
+        : isMultiTeam
+          ? buildPlacementPayload(match, mode, placements)
           : buildOutcomePayload(match, outcome ?? 'home');
       await saveResult(match.id, payload, isCorrection ? reason.trim() : undefined);
       haptic('success');
@@ -464,6 +625,7 @@ export default function MatchResultScreen() {
       setError(friendlyErrorMessage(err));
     } finally {
       setSaving(false);
+      savingRef.current = false;
     }
   };
 
@@ -471,25 +633,98 @@ export default function MatchResultScreen() {
     <Screen
       density="compact"
       footer={
-        <ActionBar
-          primary={{
-            label: isCorrection ? 'Korrektur speichern' : 'Ergebnis bestätigen',
-            isDisabled: !canConfirm || needsReason,
-            isLoading: saving,
-            onPress: () => void confirm(),
-          }}
-        />
+        <View className="gap-2">
+          {/* Rückmeldung direkt über der Aktion, wo der Blick gerade ist —
+              nicht unter den Werkzeugen außerhalb des sichtbaren Bereichs. */}
+          {error ? (
+            <View
+              accessibilityRole="alert"
+              className="flex-row items-start gap-2 rounded-control bg-danger-soft px-3 py-2.5"
+            >
+              <Icon color={tokens.danger} name="alert" size={16} />
+              <Text className="flex-1 text-sm font-semibold text-danger">{error}</Text>
+            </View>
+          ) : saved ? (
+            <View
+              accessibilityLiveRegion="polite"
+              className="flex-row items-center gap-2 rounded-control bg-success-soft px-3 py-2.5"
+            >
+              <Icon color={tokens.success} name="check-circle" size={16} />
+              <Text className="flex-1 text-sm font-semibold text-success">
+                Auf Gerät gespeichert
+                {syncCounts.pending + syncCounts.sending > 0
+                  ? ' · wird übertragen, sobald Netz da ist'
+                  : ''}
+              </Text>
+            </View>
+          ) : !checkedInHere ? (
+            <Text className="text-center text-xs text-subtle">
+              Speichern geht erst, wenn du an dieser Station eingecheckt bist.
+            </Text>
+          ) : missingLowerValue && numberTouched ? (
+            <Text className="text-center text-xs text-subtle">
+              Bei diesem Spiel braucht jedes Team einen eigenen Wert.
+            </Text>
+          ) : isCorrection && needsReason ? (
+            <Text className="text-center text-xs text-subtle">
+              Für eine Korrektur bitte einen Grund angeben.
+            </Text>
+          ) : null}
+          <ActionBar
+            primary={
+              saved
+                ? {
+                    label: 'Zurück zu den Matches',
+                    leftIcon: 'arrow-left',
+                    onPress: goBack,
+                    variant: 'outline',
+                  }
+                : {
+                    label: isCorrection ? 'Korrektur speichern' : 'Ergebnis speichern',
+                    isDisabled: !canConfirm || needsReason || !checkedInHere,
+                    isLoading: saving,
+                    haptic: 'medium',
+                    onPress: () => void confirm(),
+                  }
+            }
+          />
+        </View>
       }
     >
       <ContextBar
-        onBack={() => router.back()}
-        pendingSync={syncCounts.pending + syncCounts.sending}
+        onBack={goBack}
         subtitle={[block, station].filter(Boolean).join(' · ')}
-        title={teams.map((t) => t.name).join(' – ')}
+        title={teams.map((t) => t.name).join(teams.length > 2 ? ' · ' : ' – ')}
       />
 
+      {!checkedInHere ? (
+        <View className="gap-3 rounded-card border border-warning/40 bg-warning-soft p-4">
+          <View className="flex-row items-start gap-2">
+            <Icon color={tokens.warning} name="alert" size={18} />
+            <View className="flex-1 gap-0.5">
+              <Text className="text-sm font-extrabold text-warning">
+                {activeCheckin
+                  ? 'Du bist an einer anderen Station eingecheckt'
+                  : 'Nicht an dieser Station eingecheckt'}
+              </Text>
+              <Text className="text-xs leading-5 text-warning">
+                Ergebnisse und Laufzettel zählen erst, wenn dieses Gerät hier eingecheckt ist.
+              </Text>
+            </View>
+          </View>
+          <Button
+            label={activeCheckin ? 'Hierher wechseln' : 'Einchecken'}
+            onPress={() => {
+              haptic('success');
+              void checkIn(match.station_setup_id);
+            }}
+            size="sm"
+          />
+        </View>
+      ) : null}
+
       <ArrivalStrip
-        disabled={!activeCheckin}
+        disabled={!checkedInHere}
         disabledHint="Erst an der Station einchecken, dann lässt sich der Laufzettel führen."
         now={now}
         onArrive={(participantId) => {
@@ -508,22 +743,37 @@ export default function MatchResultScreen() {
       <MatchInfo
         game={game}
         onRoster={hasRoster ? () => setRosterOpen(true) : undefined}
-        onRules={() => router.push({ pathname: '/cockpit/rules', params: { gameId: game.id } })}
+        onRules={() => router.push({ pathname: '/rules/[gameId]', params: { gameId: game.id } })}
         round={round?.label}
         teamCount={teams.length}
       />
       <RosterSheet onClose={() => setRosterOpen(false)} teams={roster} visible={rosterOpen} />
 
-      {existingValue && existingValue.length > 0 ? (
+      {localSubmission && !withdrawn && !(existingValue && existingValue.length > 0) && !saved ? (
         <View className="gap-1 rounded-card border border-warning/40 bg-warning-soft p-3">
-          <Text className="text-xs font-extrabold text-warning">Bereits ein Ergebnis vorhanden</Text>
+          <Text className="text-xs font-extrabold text-warning">
+            Auf diesem Gerät bereits gespeichert
+          </Text>
           <Text className="text-xs text-warning">
-            Eine neue Eingabe wird als Korrekturvorschlag gespeichert und von einem Organisator geprüft.
+            Eine neue Eingabe geht als Korrektur mit Begründung zur Prüfung an die
+            Veranstaltungsleitung.
           </Text>
         </View>
       ) : null}
 
-      {game.measurement_type === 'number' && !isMultiTeam ? (
+      {existingValue && existingValue.length > 0 ? (
+        <View className="gap-1 rounded-card border border-warning/40 bg-warning-soft p-3">
+          <Text className="text-xs font-extrabold text-warning">
+            Bereits ein Ergebnis vorhanden
+          </Text>
+          <Text className="text-xs text-warning">
+            Eine neue Eingabe wird als Korrekturvorschlag gespeichert und von einem Organisator
+            geprüft.
+          </Text>
+        </View>
+      ) : null}
+
+      {isNumber ? (
         <View className="flex-row flex-wrap gap-3">
           {teams.map((team) => (
             <NumberPad
@@ -555,7 +805,7 @@ export default function MatchResultScreen() {
         />
       )}
 
-      {isCorrection ? (
+      {isCorrection && !saved ? (
         <View className="gap-1.5">
           <Text className="text-xs font-bold text-subtle">Korrekturgrund</Text>
           <TextInput
@@ -570,23 +820,20 @@ export default function MatchResultScreen() {
 
       <Pressable
         accessibilityRole="button"
-        className="flex-row items-center gap-2 self-start py-1"
+        accessibilityState={{ expanded: showTools }}
+        className="min-h-[44px] flex-row items-center gap-2 self-start"
         onPress={() => setShowTools((v) => !v)}
       >
         <Icon name={showTools ? 'chevron-down' : 'chevron-right'} size={16} />
         <Text className="text-sm font-semibold text-subtle">Werkzeuge</Text>
       </Pressable>
-      {showTools ? <ToolStrip config={game.tools_config} defaultSeconds={game.default_duration_seconds ?? 900} /> : null}
-
-      {error ? (
-        <View className="items-start">
-          <StatusBadge status="review" />
-          <Text className="mt-1 text-xs text-danger">{error}</Text>
-        </View>
-      ) : saved ? (
-        <View className="items-start">
-          <StatusBadge status="saved" />
-        </View>
+      {showTools ? (
+        <ToolStrip
+          config={game.tools_config}
+          defaultSeconds={game.default_duration_seconds ?? 900}
+          eventId={pkg.event.id}
+          matchId={match.id}
+        />
       ) : null}
     </Screen>
   );

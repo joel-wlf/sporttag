@@ -199,13 +199,27 @@ export type MatchStatus = 'scheduled' | 'ready' | 'in_progress' | 'completed' | 
 export function useSetMatchStatus(eventId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { matchId: string; status: MatchStatus; reason: string; notes: string | null }) => {
+    mutationFn: async (input: {
+      matchId: string;
+      status: MatchStatus;
+      reason: string;
+      notes: string | null;
+      /** Bisheriger tatsächlicher Start; wird nicht überschrieben. */
+      startedAt?: string | null;
+    }) => {
       const stamp = new Date().toLocaleString('de-DE');
       const entry = `[${stamp}] ${input.reason}`;
       const notes = input.notes ? `${input.notes}\n${entry}` : entry;
       const patch: TablesUpdate<'matches'> = { status: input.status, notes };
-      if (input.status === 'in_progress') patch.actual_started_at = new Date().toISOString();
-      if (input.status === 'completed') patch.actual_ended_at = new Date().toISOString();
+      const nowIso = new Date().toISOString();
+      // Ein bereits gemeldeter Start bleibt erhalten. Beim Beenden ohne
+      // gemeldeten Start setzt das Ende zugleich den Start: die Datenbank
+      // verlangt Ende ≥ Start und lehnte "Als beendet markieren" sonst ab.
+      if (input.status === 'in_progress' && !input.startedAt) patch.actual_started_at = nowIso;
+      if (input.status === 'completed') {
+        patch.actual_ended_at = nowIso;
+        if (!input.startedAt) patch.actual_started_at = nowIso;
+      }
       const { data, error } = await supabase.from('matches').update(patch).eq('id', input.matchId).select().single();
       if (error) throw error;
       return data;

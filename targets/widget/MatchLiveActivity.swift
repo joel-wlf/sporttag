@@ -37,9 +37,8 @@ struct MatchLiveActivity: Widget {
                     if let score = context.state.scoreLabel {
                         Text(score).font(.title3.bold())
                     } else if let ends = context.state.roundEndsAt {
-                        Text(timerInterval: Date()...ends, countsDown: true)
-                            .font(.caption.monospacedDigit())
-                            .frame(width: 44)
+                        CountdownText(ends: ends, width: 44)
+                            .font(.caption)
                     }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
@@ -69,8 +68,8 @@ private struct MatchLockScreenView: View {
                     .foregroundStyle(.white.opacity(0.7))
                 Spacer()
                 if let ends = state.roundEndsAt {
-                    Text(timerInterval: Date()...ends, countsDown: true)
-                        .font(.caption.monospacedDigit())
+                    CountdownText(ends: ends)
+                        .font(.caption)
                         .foregroundStyle(.white.opacity(0.85))
                 }
             }
@@ -106,6 +105,7 @@ extension MatchActivityAttributes.ContentState {
     }
 }
 
+@available(iOS 17.0, *)
 #Preview("Notification", as: .content, using: MatchActivityAttributes.preview) {
     MatchLiveActivity()
 } contentStates: {

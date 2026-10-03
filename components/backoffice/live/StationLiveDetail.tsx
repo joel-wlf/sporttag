@@ -8,7 +8,12 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { useTokens } from '@/components/ui/theme';
 import { friendlyErrorMessage } from '@/lib/api/errors';
 import { useSetMatchStatus, type MatchStatus } from '@/lib/api/live';
-import { liveStatusLabel, matchStatusLabel, statusReason, type StationLive } from '@/lib/live/derive';
+import {
+  liveStatusLabel,
+  matchStatusLabel,
+  statusReason,
+  type StationLive,
+} from '@/lib/live/derive';
 import { statusColor } from './liveStatusColor';
 
 function formatTime(iso: string | null) {
@@ -18,33 +23,40 @@ function formatTime(iso: string | null) {
 
 type ActionKey = 'cancel' | 'reschedule' | 'start' | 'finish';
 
-const actions: Record<ActionKey, { status: MatchStatus; label: string; title: string; description: string; icon: IconName }> = {
+const actions: Record<
+  ActionKey,
+  { status: MatchStatus; label: string; title: string; description: string; icon: IconName }
+> = {
   start: {
     status: 'in_progress',
     label: 'Als gestartet markieren',
     title: 'Match als gestartet markieren?',
-    description: 'Nutze das, wenn das Match läuft, das Gerät an der Station den Start aber nicht meldet.',
+    description:
+      'Nutze das, wenn das Match läuft, das Gerät an der Station den Start aber nicht meldet.',
     icon: 'play',
   },
   finish: {
     status: 'completed',
     label: 'Als beendet markieren',
     title: 'Match als beendet markieren?',
-    description: 'Setzt nur den Status. Das Ergebnis selbst wird über das Modul Ergebnisse erfasst oder korrigiert.',
+    description:
+      'Setzt nur den Status. Das Ergebnis selbst wird über das Modul Ergebnisse erfasst oder korrigiert.',
     icon: 'check-circle',
   },
   cancel: {
     status: 'cancelled',
     label: 'Match absagen',
     title: 'Match absagen?',
-    description: 'Das Match fällt aus und zählt nicht zur Wertung. Das lässt sich später mit „Wieder einplanen“ rückgängig machen.',
+    description:
+      'Das Match fällt aus und zählt nicht zur Wertung. Das lässt sich später mit „Wieder einplanen“ rückgängig machen.',
     icon: 'close',
   },
   reschedule: {
     status: 'scheduled',
     label: 'Wieder einplanen',
     title: 'Match wieder einplanen?',
-    description: 'Das Match kommt zurück in den Zeitplan und kann an der Station wieder gestartet werden.',
+    description:
+      'Das Match kommt zurück in den Zeitplan und kann an der Station wieder gestartet werden.',
     icon: 'undo',
   },
 };
@@ -52,7 +64,9 @@ const actions: Record<ActionKey, { status: MatchStatus; label: string; title: st
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View className="gap-2">
-      <Text className="text-[11px] font-black tracking-[0.8px] text-subtle">{title.toUpperCase()}</Text>
+      <Text className="text-[11px] font-black tracking-[0.8px] text-subtle">
+        {title.toUpperCase()}
+      </Text>
       {children}
     </View>
   );
@@ -110,7 +124,13 @@ export function StationLiveDetail({
       return;
     }
     try {
-      await setStatus.mutateAsync({ matchId: match.id, status: actions[pending].status, reason: reason.trim(), notes: match.notes });
+      await setStatus.mutateAsync({
+        matchId: match.id,
+        status: actions[pending].status,
+        reason: reason.trim(),
+        notes: match.notes,
+        startedAt: match.actual_started_at,
+      });
       setPending(null);
     } catch (err) {
       setError(friendlyErrorMessage(err));
@@ -119,20 +139,35 @@ export function StationLiveDetail({
 
   const available: ActionKey[] = !match
     ? []
-    : match.status === 'cancelled' || match.status === 'completed'
+    : match.status === 'cancelled'
       ? ['reschedule']
+      : match.status === 'completed'
+        ? // Mit Ergebnis würde "Wieder einplanen" es ohne Begründung und
+          // Historie aus der Tabelle nehmen; dafür gibt es den Rückzug im
+          // Modul Ergebnisse (withdraw_result).
+          match.current_result_version > 0
+          ? []
+          : ['reschedule']
       : match.status === 'in_progress'
         ? ['finish', 'cancel']
         : ['start', 'cancel'];
 
-  const checkedInNames = row.checkins.flatMap((c) => c.checkin_staff.map((s) => staffNames[s.staff_id] ?? 'Unbekannt'));
+  const checkedInNames = row.checkins.flatMap((c) =>
+    c.checkin_staff.map((s) => staffNames[s.staff_id] ?? 'Unbekannt'),
+  );
   const firstCheckin = row.checkins[0]?.checked_in_at ?? null;
 
   return (
     <View className="gap-4">
       {onBack ? (
         <View className="flex-row">
-          <Button label="Alle Stationen" leftIcon="arrow-left" onPress={onBack} size="sm" variant="ghost" />
+          <Button
+            label="Alle Stationen"
+            leftIcon="arrow-left"
+            onPress={onBack}
+            size="sm"
+            variant="ghost"
+          />
         </View>
       ) : null}
 
@@ -140,10 +175,22 @@ export function StationLiveDetail({
       <View className="gap-3 rounded-[22px] p-4" style={{ backgroundColor: color + '1F' }}>
         <View className="flex-row items-start justify-between gap-3">
           <View className="flex-1 gap-1">
-            <Text className="text-[22px] font-extrabold tracking-[-0.4px] text-ink">{row.station.name}</Text>
-            {row.station.location ? <Text className="text-[13px] text-subtle">{row.station.location}</Text> : null}
+            <Text className="text-[22px] font-extrabold tracking-[-0.4px] text-ink">
+              {row.station.name}
+            </Text>
+            {row.station.location ? (
+              <Text className="text-[13px] text-subtle">{row.station.location}</Text>
+            ) : null}
           </View>
-          {onClose ? <Button accessibilityLabel="Schließen" leftIcon="close" onPress={onClose} size="sm" variant="ghost" /> : null}
+          {onClose ? (
+            <Button
+              accessibilityLabel="Schließen"
+              leftIcon="close"
+              onPress={onClose}
+              size="sm"
+              variant="ghost"
+            />
+          ) : null}
         </View>
         <View className="flex-row items-center gap-2">
           <View className="h-3 w-3 rounded-full" style={{ backgroundColor: color }} />
@@ -153,7 +200,24 @@ export function StationLiveDetail({
         </View>
         {statusText ? <Text className="text-[13px] leading-5 text-ink">{statusText}</Text> : null}
         {row.openSubmissions.length > 0 && onOpenResults ? (
-          <Button label="Zu klärende Abgabe ansehen" onPress={onOpenResults} rightIcon="chevron-right" size="sm" variant="danger" />
+          <Button
+            label="Zu klärende Abgabe ansehen"
+            onPress={onOpenResults}
+            rightIcon="chevron-right"
+            size="sm"
+            variant="danger"
+          />
+        ) : match && onOpenResults ? (
+          // Ergebnis eintragen oder korrigieren geschieht im Modul Ergebnisse;
+          // von hier aus direkt dorthin statt über die Tab-Leiste zu suchen.
+          <Button
+            className="self-start"
+            label={match.current_result_version > 0 ? 'Ergebnis ansehen' : 'Ergebnis eintragen'}
+            onPress={onOpenResults}
+            rightIcon="chevron-right"
+            size="sm"
+            variant="outline"
+          />
         ) : null}
       </View>
 
@@ -161,7 +225,9 @@ export function StationLiveDetail({
       <Card className="gap-4">
         <Section title={row.game?.name ? `Spiel · ${row.game.name}` : 'Spiel'}>
           {!row.setup ? (
-            <Text className="text-[13px] text-subtle">In diesem Block ist hier kein Spiel eingeplant.</Text>
+            <Text className="text-[13px] text-subtle">
+              In diesem Block ist hier kein Spiel eingeplant.
+            </Text>
           ) : !match ? (
             <Text className="text-[13px] text-subtle">In dieser Runde ist hier kein Match.</Text>
           ) : (
@@ -173,7 +239,10 @@ export function StationLiveDetail({
                   ) : (
                     row.teams.map((team) => (
                       <View className="flex-row items-center gap-2" key={team.id}>
-                        <View className="h-3 w-3 rounded-full border border-line" style={{ backgroundColor: team.color ?? tokens.surfaceMuted }} />
+                        <View
+                          className="h-3 w-3 rounded-full border border-line"
+                          style={{ backgroundColor: team.color ?? tokens.surfaceMuted }}
+                        />
                         <Text className="flex-1 text-[15px] font-bold text-ink" numberOfLines={1}>
                           {team.name}
                         </Text>
@@ -181,38 +250,50 @@ export function StationLiveDetail({
                     ))
                   )}
                 </View>
-                <View className="items-center rounded-2xl px-4 py-2" style={{ backgroundColor: row.scoreLabel ? tokens.accent : tokens.surfaceMuted }}>
+                <View
+                  className="items-center rounded-2xl px-4 py-2"
+                  style={{ backgroundColor: row.scoreLabel ? tokens.accent : tokens.surfaceMuted }}
+                >
                   <Text className="text-[24px] font-black text-ink">{row.scoreLabel ?? '–'}</Text>
-                  <Text className="text-[10px] font-bold text-ink">{row.scoreLabel ? 'Stand' : 'kein Ergebnis'}</Text>
+                  <Text className="text-[10px] font-bold text-ink">
+                    {row.scoreLabel ? 'Stand' : 'kein Ergebnis'}
+                  </Text>
                 </View>
               </View>
               <InfoLine icon="flag">
                 Status: {matchStatusLabel[match.status] ?? match.status}
-                {match.actual_started_at ? ` · gestartet ${formatTime(match.actual_started_at)}` : ''}
+                {match.actual_started_at
+                  ? ` · gestartet ${formatTime(match.actual_started_at)}`
+                  : ''}
                 {match.actual_ended_at ? ` · beendet ${formatTime(match.actual_ended_at)}` : ''}
               </InfoLine>
             </View>
           )}
         </Section>
 
-        <Section title="Betreuung vor Ort">
-          {checkedInNames.length > 0 ? (
-            <InfoLine icon="users">
-              {checkedInNames.join(', ')}
-              {firstCheckin ? ` · eingecheckt ${formatTime(firstCheckin)}` : ''}
+        {/* Ohne Spiel in diesem Block muss hier niemand sein: keine Warnung. */}
+        {row.setup ? (
+          <Section title="Betreuung vor Ort">
+            {checkedInNames.length > 0 ? (
+              <InfoLine icon="users">
+                {checkedInNames.join(', ')}
+                {firstCheckin ? ` · eingecheckt ${formatTime(firstCheckin)}` : ''}
+              </InfoLine>
+            ) : row.checkins.length > 0 ? (
+              <InfoLine icon="users">Gerät eingecheckt, keine Namen angegeben</InfoLine>
+            ) : (
+              <InfoLine icon="alert">Niemand eingecheckt</InfoLine>
+            )}
+            <InfoLine icon={row.device ? 'devices' : 'wifi-off'}>
+              {row.device
+                ? `${row.device.label} · zuletzt gemeldet ${formatTime(row.device.last_seen_at) ?? 'nie'}`
+                : 'Kein Gerät an dieser Station'}
             </InfoLine>
-          ) : row.checkins.length > 0 ? (
-            <InfoLine icon="users">Gerät eingecheckt, keine Namen angegeben</InfoLine>
-          ) : (
-            <InfoLine icon="alert">Niemand eingecheckt</InfoLine>
-          )}
-          <InfoLine icon={row.device ? 'devices' : 'wifi-off'}>
-            {row.device
-              ? `${row.device.label} · zuletzt gemeldet ${formatTime(row.device.last_seen_at) ?? 'nie'}`
-              : 'Kein Gerät an dieser Station'}
-          </InfoLine>
-          {row.station.arrival_notes ? <InfoLine icon="map-pin">{row.station.arrival_notes}</InfoLine> : null}
-        </Section>
+            {row.station.arrival_notes ? (
+              <InfoLine icon="map-pin">{row.station.arrival_notes}</InfoLine>
+            ) : null}
+          </Section>
+        ) : null}
       </Card>
 
       {/* Eingreifen */}
@@ -220,7 +301,8 @@ export function StationLiveDetail({
         <Card className="gap-3">
           <Section title="Eingreifen">
             <Text className="text-[13px] leading-5 text-subtle">
-              Wenn an der Station etwas nicht klappt, kannst du den Match-Status hier von Hand setzen. Jeder Eingriff wird mit Begründung protokolliert.
+              Wenn an der Station etwas nicht klappt, kannst du den Match-Status hier von Hand
+              setzen. Jeder Eingriff wird mit Begründung protokolliert.
             </Text>
           </Section>
           <View className="gap-2">

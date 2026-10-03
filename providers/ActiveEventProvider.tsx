@@ -30,12 +30,16 @@ export function ActiveEventProvider({ children }: { children: React.ReactNode })
     };
   }, []);
 
-  const { data: event, isLoading: eventLoading, isError } = useEvent(storedEventId);
+  const { data: event, isLoading: eventLoading, error } = useEvent(storedEventId);
+  // Nur „keine Zeile“ (gelöscht, Mitgliedschaft entzogen) bedeutet, dass die
+  // Auswahl nicht mehr gilt. Ein Netz- oder Tokenfehler ist vorübergehend und
+  // darf die gespeicherte Auswahl nicht löschen – sonst war sie nach einem
+  // Funkloch beim nächsten Start weg.
+  const isError = (error as { code?: string } | null)?.code === 'PGRST116';
 
-  // Event nicht mehr zugreifbar (gelöscht, Mitgliedschaft entzogen): die
-  // gespeicherte Auswahl bleibt bewusst unverändert im State (kein setState
-  // hier), nur der abgeleitete `eventId` unten wird null; die veraltete
-  // Persistenz wird als reiner Nebeneffekt geräumt.
+  // Event nicht mehr zugreifbar: die gespeicherte Auswahl bleibt bewusst
+  // unverändert im State (kein setState hier), nur der abgeleitete `eventId`
+  // unten wird null; die veraltete Persistenz wird als reiner Nebeneffekt geräumt.
   useEffect(() => {
     if (restored && storedEventId && isError) {
       void AsyncStorage.removeItem(STORAGE_KEY);

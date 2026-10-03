@@ -1,4 +1,4 @@
-import { Platform, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Icon } from '@/components/ui/Icon';
@@ -31,11 +31,11 @@ export function LiveStatusBar({
   onNext,
   onNow,
   onOpenSchedule,
+  onOpenDevices,
   lastUpdated,
   now,
   connected,
   unreachableDevices,
-  liveActivity,
 }: {
   round: RoundRow | null;
   roundNumber: number;
@@ -47,12 +47,12 @@ export function LiveStatusBar({
   onNext: () => void;
   onNow: () => void;
   onOpenSchedule: () => void;
+  /** Führt zu Geräte & Synchronisierung, wenn Geräte schweigen. */
+  onOpenDevices?: () => void;
   lastUpdated: Date;
   now: Date;
   connected: boolean;
   unreachableDevices: number;
-  /** Schalter für die Event-Health-Live-Activity (nur iOS, siehe useEventHealthLiveActivity). */
-  liveActivity?: { active: boolean; onToggle: () => void };
 }) {
   const tokens = useTokens();
   return (
@@ -87,24 +87,20 @@ export function LiveStatusBar({
         </View>
         {round && !isCurrent ? <Button label="Zur aktuellen Runde" onPress={onNow} size="sm" variant="secondary" /> : null}
         {!round ? <Button label="Zeitplan anlegen" onPress={onOpenSchedule} size="sm" variant="secondary" /> : null}
-        {liveActivity && Platform.OS === 'ios' ? (
-          <Button
-            label={liveActivity.active ? 'Live Activity aus' : 'Auf Sperrbildschirm zeigen'}
-            leftIcon={liveActivity.active ? 'bell-off' : 'bell'}
-            onPress={liveActivity.onToggle}
-            size="sm"
-            variant={liveActivity.active ? 'secondary' : 'outline'}
-          />
-        ) : null}
       </View>
 
       {unreachableDevices > 0 ? (
-        <View className="flex-row items-center gap-2 rounded-2xl bg-warning-soft px-4 py-3">
-          <Icon color={tokens.warning} name="wifi-off" size={16} />
-          <Text className="flex-1 text-[13px] font-semibold text-warning">
-            {unreachableDevices} {unreachableDevices === 1 ? 'Gerät meldet' : 'Geräte melden'} sich seit über 5 min nicht. Was dort passiert, ist hier evtl. noch
-            nicht sichtbar.
-          </Text>
+        <View className="gap-2 rounded-2xl bg-warning-soft px-4 py-3">
+          <View className="flex-row items-center gap-2">
+            <Icon color={tokens.warning} name="wifi-off" size={16} />
+            <Text className="flex-1 text-[13px] font-semibold text-warning">
+              {unreachableDevices} {unreachableDevices === 1 ? 'Gerät meldet' : 'Geräte melden'} sich seit über 5 min nicht. Was dort passiert, ist hier evtl. noch
+              nicht sichtbar.
+            </Text>
+          </View>
+          {onOpenDevices ? (
+            <Button className="self-start" label="Geräte ansehen" onPress={onOpenDevices} rightIcon="chevron-right" size="sm" variant="outline" />
+          ) : null}
         </View>
       ) : null}
     </Card>

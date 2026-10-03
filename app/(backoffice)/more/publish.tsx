@@ -42,7 +42,7 @@ function PublishContent() {
   return (
     <Screen>
       <Header
-        description="Eigenständiges Freigabe-Gate. Die Veröffentlichung fixiert ergebnisrelevante Regeln, erhöht die Planversion."
+        description="Prüft, ob alles für den Sporttag bereit ist, und gibt die Veranstaltung für Stationsgeräte frei."
         eyebrow="VERANSTALTUNG"
         title="Freigabe & Veröffentlichung"
       />
@@ -61,14 +61,24 @@ function PublishContent() {
             </Text>
             <Text className="text-[32px] font-black tracking-[4px] text-ink">{publishedCode}</Text>
           </View>
-          <Button className="self-start" label="Weiter zur Übersicht" onPress={() => router.push('/more/overview')} />
+          <Button className="self-start" label="Weiter zur Übersicht" onPress={() => router.navigate('/more/overview')} />
         </Card>
       ) : alreadyPublished ? (
-        <Card>
+        <Card className="gap-4">
           <CardHeader>
             <CardTitle>Bereits veröffentlicht</CardTitle>
-            <CardDescription>Diese Veranstaltung ist nicht mehr im Entwurfsstatus.</CardDescription>
+            <CardDescription>
+              Stationsgeräte können beitreten. Den Veranstaltungscode erneuern oder den Status ändern (laufend, beendet)
+              kannst du in den Event-Einstellungen.
+            </CardDescription>
           </CardHeader>
+          <Button
+            className="self-start"
+            label="Zu den Event-Einstellungen"
+            onPress={() => router.navigate('/more/settings')}
+            rightIcon="chevron-right"
+            variant="outline"
+          />
         </Card>
       ) : (
         <Card className="gap-4">
@@ -108,7 +118,7 @@ function PublishContent() {
 
       <ConfirmDialog
         confirmLabel="Veröffentlichen"
-        description="Ergebnisrelevante Regeln werden fixiert und die Planversion erhöht. Danach sind zentrale Einstellungen gesperrt."
+        description="Stationsgeräte können danach mit dem Veranstaltungscode beitreten. Planung und Einstellungen bleiben bearbeitbar; jede Änderung erhöht die Planversion, und Geräte laden den Plan beim nächsten Sync neu."
         isLoading={publish.isPending}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={handlePublish}

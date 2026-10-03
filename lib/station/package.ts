@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import * as store from './store';
 import { sha256 } from './identity';
+import { syncMapAsset } from './mapAsset';
 import type {
   DayEntry,
   PackageBlock,
@@ -25,6 +26,13 @@ export async function downloadPackage(eventId: string): Promise<StationPackage> 
   const hash = await sha256(JSON.stringify(pkg));
   await store.savePackage(eventId, pkg, hash);
   await store.setLastDownloadAt(eventId, new Date().toISOString());
+  // Das Kartenbild gehört zum vorbereiteten Betrieb, blockiert das Paket aber
+  // nicht: die Karte versucht es beim Öffnen erneut (`useOfflineMap`).
+  try {
+    await syncMapAsset(eventId);
+  } catch {
+    // offline oder Karte nicht ladbar: vorhandene lokale Karte bleibt gültig.
+  }
   return pkg;
 }
 
@@ -103,16 +111,45 @@ export const blockKindLabels: Record<PackageBlock['kind'], string> = {
   special: 'Besonders',
 };
 
-/** Blöcke haben keinen Namen; die Anzeige ergibt sich aus Art und Position. */
-export function blockLabel(block: PackageBlock): string {
-  return `${blockKindLabels[block.kind] ?? block.kind} ${block.position}`;
+/**
+ * Nummer eines Blocks wie im Backoffice-Zeitplan: Pausen zählen nicht mit
+ * (sonst hieß derselbe Block hier „Bl. 4“, im Backoffice „Block 3“).
+ */
+export function blockNumber(block: PackageBlock, blocks: PackageBlock[]): number {
+  const counted = [...blocks]
+    .filter((b) => b.kind !== 'break')
+    .sort((a, b) => a.position - b.position);
+  const index = counted.findIndex((b) => b.id === block.id);
+  return index >= 0 ? index + 1 : block.position;
 }
 
-export function gameForSetup(pkg: StationPackage, setup: PackageStationSetup): PackageGame | undefined {
+/** Blöcke haben keinen Namen; die Anzeige ergibt sich aus Art und Nummer. */
+export function blockLabel(block: PackageBlock, blocks: PackageBlock[]): string {
+  if (block.kind === 'break') return blockKindLabels.break;
+  return `${blockKindLabels[block.kind] ?? block.kind} ${blockNumber(block, blocks)}`;
+}
+
+/**
+ * Teams eines Matches als eine Zeile: zwei Teams als Begegnung ("A – B"),
+ * ab drei Teams als Aufzählung ("A · B · C"), weil eine Strichkette wie
+ * eine Folge von Duellen gelesen wird.
+ */
+export function matchTeamsLabel(pkg: StationPackage, match: PackageMatch): string {
+  const names = match.participants.map((p) => teamName(pkg, p.team_id));
+  return names.join(names.length > 2 ? ' · ' : ' – ');
+}
+
+export function gameForSetup(
+  pkg: StationPackage,
+  setup: PackageStationSetup,
+): PackageGame | undefined {
   return pkg.event_games.find((g) => g.id === setup.event_game_id);
 }
 
-export function stationForSetup(pkg: StationPackage, setup: PackageStationSetup): PackageStation | undefined {
+export function stationForSetup(
+  pkg: StationPackage,
+  setup: PackageStationSetup,
+): PackageStation | undefined {
   return pkg.stations.find((s) => s.id === setup.station_id);
 }
 
@@ -124,6 +161,22 @@ export function matchesForSetup(pkg: StationPackage, setupId: string): PackageMa
       const roundB = pkg.rounds.find((r) => r.id === b.round_id);
       return (roundA?.starts_at ?? '').localeCompare(roundB?.starts_at ?? '');
     });
+}
+
+/**
+ * Die Leitung hat das Ergebnis zurückgezogen (`withdraw_result`): Version > 0,
+ * aber keine Werte, und das Match ist wieder offen. Eine eigene frühere
+ * Abgabe ist dann erledigt; das Match muss neu erfasst werden.
+ */
+export function isResultWithdrawn(pkg: StationPackage, match: PackageMatch) {
+  return (
+    match.current_result_version > 0 &&
+    match.status !== 'completed' &&
+    match.status !== 'cancelled' &&
+    !pkg.current_result_values.some(
+      (v) => v.match_id === match.id && v.version === match.current_result_version,
+    )
+  );
 }
 
 export function teamName(pkg: StationPackage, teamId: string) {
@@ -148,10 +201,16 @@ export function staffNotes(pkg: StationPackage, staffId: string) {
  */
 export function setupsForStaff(pkg: StationPackage, staffId: string): PackageStationSetup[] {
   if (pkg.event.staff_assignment_mode === 'game') {
-    const gameIds = new Set(pkg.game_assignments.filter((ga) => ga.staff_id === staffId).map((ga) => ga.event_game_id));
+    const gameIds = new Set(
+      pkg.game_assignments.filter((ga) => ga.staff_id === staffId).map((ga) => ga.event_game_id),
+    );
     return pkg.station_setups.filter((su) => gameIds.has(su.event_game_id));
   }
-  const setupIds = new Set(pkg.station_assignments.filter((sa) => sa.staff_id === staffId).map((sa) => sa.station_setup_id));
+  const setupIds = new Set(
+    pkg.station_assignments
+      .filter((sa) => sa.staff_id === staffId)
+      .map((sa) => sa.station_setup_id),
+  );
   return pkg.station_setups.filter((su) => setupIds.has(su.id));
 }
 
@@ -166,7 +225,9 @@ export function dayPlan(pkg: StationPackage, staffId: string): DayEntry[] {
       entries.push({ kind: 'break', id: block.id, block });
       continue;
     }
-    const setupsInBlock = pkg.station_setups.filter((su) => su.block_id === block.id && mySetups.has(su.id));
+    const setupsInBlock = pkg.station_setups.filter(
+      (su) => su.block_id === block.id && mySetups.has(su.id),
+    );
     if (setupsInBlock.length === 0) {
       entries.push({ kind: 'off', id: block.id, block });
       continue;
@@ -196,9 +257,15 @@ export function findDayEntry(entries: DayEntry[], id?: string | null) {
 
 export function formatTime(iso: string, timezone: string) {
   try {
-    return new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: timezone }).format(new Date(iso));
+    return new Intl.DateTimeFormat('de-DE', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: timezone,
+    }).format(new Date(iso));
   } catch {
-    return new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+    return new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(
+      new Date(iso),
+    );
   }
 }
 

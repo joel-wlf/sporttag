@@ -31,8 +31,20 @@ export function friendlyErrorMessage(error: unknown): string {
     if (message.includes('organizer account required')) return 'Dafür ist ein persönliches Organisatorenkonto nötig.';
     if (message.includes('result_version_changed')) return 'Der Ergebnisstand hat sich zwischenzeitlich geändert. Bitte neu laden und erneut prüfen.';
     if (message.includes('reason_required')) return 'Bitte eine Begründung angeben.';
+    if (message.includes('match_has_checkin'))
+      return 'An dieser Station war schon ein Gerät eingecheckt. Es könnte offline bereits ein Ergebnis zu diesem Match gespeichert haben, das noch nicht übertragen ist. Damit es nicht verloren geht, lässt sich das Match nicht mehr löschen – sage es stattdessen im Live-Betrieb ab und plane bei Bedarf ein neues.';
+    if (message.includes('match_has_results'))
+      return 'Dieses Match hat schon Ergebnisse oder Ankünfte. Damit nichts verloren geht, lässt es sich nicht mehr aus dem Plan löschen oder umbesetzen – sage es stattdessen im Live-Betrieb ab und plane bei Bedarf ein neues.';
     if (message.includes('ties_not_allowed')) return 'Für dieses Spiel sind Unentschieden nicht erlaubt.';
     if (message.includes('match is cancelled')) return 'Für ein abgesagtes Match kann kein Ergebnis erfasst werden.';
+    if (message.includes('check-in does not match this station setup'))
+      return 'Das Match liegt inzwischen an einer anderen Station als der Check-in.';
+    if (message.includes('match not found')) return 'Das Match gibt es im Plan nicht mehr.';
+    if (message.includes('station setup not found')) return 'Die Stationsbelegung gibt es im Plan nicht mehr.';
+    if (message.includes('device access is not authorized'))
+      return 'Der Gerätezugang ist nicht mehr gültig. Bitte mit dem Veranstaltungscode neu beitreten.';
+    if (/network request failed|failed to fetch|fetch failed/i.test(message))
+      return 'Keine Verbindung zum Server.';
     if (
       message.includes('exactly one value per match participant') ||
       message.includes('invalid participant') ||
@@ -53,10 +65,24 @@ export function friendlyErrorMessage(error: unknown): string {
     if (error.code === '42501') return 'Keine Berechtigung für diese Aktion.';
     return message || 'Unbekannter Datenbankfehler.';
   }
-  if (error instanceof Error) return error.message;
+  // Stationsfehler kommen teils als schlichte Error-Meldung (redeemCode reicht
+  // nur den Text weiter); dieselben bekannten Texte gelten auch dort.
+  if (error instanceof Error) return knownMessage(error.message) ?? error.message;
   return 'Unbekannter Fehler.';
 }
 
 function isPostgrestError(error: unknown): error is PostgrestError {
   return Boolean(error && typeof error === 'object' && 'message' in error && 'code' in error);
+}
+
+function knownMessage(message: string): string | null {
+  if (message.includes('invalid or expired access code')) return 'Der Veranstaltungscode ist ungültig oder abgelaufen.';
+  if (message.includes('too many attempts')) return 'Zu viele Versuche. Bitte in einigen Minuten erneut versuchen.';
+  if (/network request failed|failed to fetch|fetch failed/i.test(message)) {
+    return 'Keine Verbindung. Für den Beitritt braucht das Gerät einmal Internet.';
+  }
+  if (message.includes('Anonymous sign-ins are disabled')) {
+    return 'Stationsbeitritt ist im Backend gerade nicht freigeschaltet. Bitte die Veranstaltungsleitung informieren.';
+  }
+  return null;
 }

@@ -50,6 +50,9 @@ function StationRow({
             <View className="flex-1 gap-0.5">
               {row.game ? (
                 <Text className="text-[12px] font-semibold text-subtle" numberOfLines={1}>
+                  {/* Die Runde, an der die Station tatsächlich steht (kann
+                      vom Plan abweichen). */}
+                  {row.round?.label ? `${row.round.label} · ` : ''}
                   {row.game.name}
                 </Text>
               ) : null}

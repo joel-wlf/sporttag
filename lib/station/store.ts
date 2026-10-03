@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import { countOutbox } from './syncCounts';
 import type {
   LocalCheckin,
   LocalLiveState,
@@ -23,6 +24,25 @@ let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 function getDb() {
   if (!dbPromise) dbPromise = openDb();
   return dbPromise;
+}
+
+// Alle Schreibzugriffe laufen nacheinander über eine Warteschlange. Alle
+// Abfragen teilen sich eine Verbindung: Ohne diese Reihenfolge konnte ein
+// zweites BEGIN (z. B. Sync während einer Ergebnisabgabe) scheitern und mit
+// seinem ROLLBACK die laufende Transaktion abbrechen; deren übrige
+// Anweisungen liefen dann einzeln weiter (verwaiste Outbox-Zeile, Lücke in der
+// Sequenz, die das Abschlussmanifest nie schließen ließe).
+let writeChain: Promise<unknown> = Promise.resolve();
+
+function serialized<T>(task: (db: SQLite.SQLiteDatabase) => Promise<T>): Promise<T> {
+  const run = writeChain.catch(() => undefined).then(async () => task(await getDb()));
+  writeChain = run;
+  return run;
+}
+
+/** Transaktion innerhalb der Schreibwarteschlange. */
+function transaction(task: (db: SQLite.SQLiteDatabase) => Promise<void>) {
+  return serialized((db) => db.withTransactionAsync(() => task(db)));
 }
 
 async function openDb() {
@@ -145,13 +165,18 @@ async function openDb() {
 // ---------------------------------------------------------------------------
 
 export async function getOrCreateDevice(makeId: () => string, makeLabel: () => string) {
-  const db = await getDb();
-  const existing = await db.getFirstAsync<{ id: string; label: string }>('SELECT id, label FROM device LIMIT 1');
-  if (existing) return existing;
-  const id = makeId();
-  const label = makeLabel();
-  await db.runAsync('INSERT INTO device (id, label) VALUES (?, ?)', id, label);
-  return { id, label };
+  // In der Warteschlange: zwei gleichzeitige erste Aufrufe legten sonst zwei
+  // Geräte-IDs an, und `LIMIT 1` lieferte danach mal die eine, mal die andere.
+  return serialized(async (db) => {
+    const existing = await db.getFirstAsync<{ id: string; label: string }>(
+      'SELECT id, label FROM device ORDER BY rowid LIMIT 1',
+    );
+    if (existing) return existing;
+    const id = makeId();
+    const label = makeLabel();
+    await db.runAsync('INSERT INTO device (id, label) VALUES (?, ?)', id, label);
+    return { id, label };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -202,45 +227,52 @@ export async function getAnyStationState(): Promise<StationState | null> {
   return getStationState(row.event_id);
 }
 
-export async function ensureStationState(eventId: string, accessId: string) {
+/**
+ * Die Veranstaltung, mit der das Gerät starten soll: bevorzugt eine nicht
+ * verlassene, darunter die zuletzt geladene. Ein früher verlassenes Event
+ * darf ein später beigetretenes nicht verdecken.
+ */
+export async function getCurrentStationState(): Promise<StationState | null> {
   const db = await getDb();
-  await db.runAsync(
+  const row = await db.getFirstAsync<{ event_id: string }>(
+    'SELECT event_id FROM station_state ORDER BY left ASC, last_download_at DESC LIMIT 1',
+  );
+  if (!row) return null;
+  return getStationState(row.event_id);
+}
+
+export async function ensureStationState(eventId: string, accessId: string) {
+  await serialized((db) => db.runAsync(
     `INSERT INTO station_state (event_id, access_id, next_sequence, left) VALUES (?, ?, 1, 0)
      ON CONFLICT(event_id) DO UPDATE SET access_id = excluded.access_id, left = 0`,
     eventId,
     accessId,
-  );
+  ));
 }
 
 /** Markiert die Veranstaltung als bewusst verlassen bzw. (bei erneutem Beitritt) wieder aktiv. */
 export async function setEventLeft(eventId: string, left: boolean) {
-  const db = await getDb();
-  await db.runAsync('UPDATE station_state SET left = ? WHERE event_id = ?', left ? 1 : 0, eventId);
+  await serialized((db) => db.runAsync('UPDATE station_state SET left = ? WHERE event_id = ?', left ? 1 : 0, eventId));
 }
 
 export async function setStaffId(eventId: string, staffId: string) {
-  const db = await getDb();
-  await db.runAsync('UPDATE station_state SET staff_id = ? WHERE event_id = ?', staffId, eventId);
+  await serialized((db) => db.runAsync('UPDATE station_state SET staff_id = ? WHERE event_id = ?', staffId, eventId));
 }
 
 export async function setActiveCheckin(eventId: string, checkinId: string | null) {
-  const db = await getDb();
-  await db.runAsync('UPDATE station_state SET active_checkin_id = ? WHERE event_id = ?', checkinId, eventId);
+  await serialized((db) => db.runAsync('UPDATE station_state SET active_checkin_id = ? WHERE event_id = ?', checkinId, eventId));
 }
 
 export async function setLastDownloadAt(eventId: string, iso: string) {
-  const db = await getDb();
-  await db.runAsync('UPDATE station_state SET last_download_at = ? WHERE event_id = ?', iso, eventId);
+  await serialized((db) => db.runAsync('UPDATE station_state SET last_download_at = ? WHERE event_id = ?', iso, eventId));
 }
 
 export async function setLastManifestResult(eventId: string, json: string) {
-  const db = await getDb();
-  await db.runAsync('UPDATE station_state SET last_manifest_result = ? WHERE event_id = ?', json, eventId);
+  await serialized((db) => db.runAsync('UPDATE station_state SET last_manifest_result = ? WHERE event_id = ?', json, eventId));
 }
 
 export async function clearStationSession(eventId: string) {
-  const db = await getDb();
-  await db.runAsync('UPDATE station_state SET staff_id = NULL, active_checkin_id = NULL WHERE event_id = ?', eventId);
+  await serialized((db) => db.runAsync('UPDATE station_state SET staff_id = NULL, active_checkin_id = NULL WHERE event_id = ?', eventId));
 }
 
 /**
@@ -251,8 +283,7 @@ export async function clearStationSession(eventId: string) {
  * dabei verloren.
  */
 export async function clearAllStationData() {
-  const db = await getDb();
-  await db.withTransactionAsync(async () => {
+  await transaction(async (db) => {
     await db.execAsync(`
       DELETE FROM local_outbox;
       DELETE FROM local_result_submissions;
@@ -273,9 +304,8 @@ export async function clearAllStationData() {
 // ---------------------------------------------------------------------------
 
 export async function savePackage(eventId: string, pkg: StationPackage, contentHash: string) {
-  const db = await getDb();
   const now = new Date().toISOString();
-  await db.runAsync(
+  await serialized((db) => db.runAsync(
     `INSERT INTO local_event_packages (event_id, plan_version, package_json, content_hash, downloaded_at, verified_at)
      VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(event_id) DO UPDATE SET
@@ -290,7 +320,7 @@ export async function savePackage(eventId: string, pkg: StationPackage, contentH
     contentHash,
     now,
     now,
-  );
+  ));
 }
 
 export async function loadPackage(eventId: string): Promise<StationPackage | null> {
@@ -323,8 +353,7 @@ async function nextPosition(db: SQLite.SQLiteDatabase) {
 
 /** Speichert einen Check-in lokal und reiht ihn atomar in die Outbox ein. */
 export async function saveCheckin(checkin: LocalCheckin) {
-  const db = await getDb();
-  await db.withTransactionAsync(async () => {
+  await transaction(async (db) => {
     await db.runAsync(
       `INSERT INTO local_checkins (id, event_id, station_setup_id, checked_in_at, checked_out_at, staff_ids)
        VALUES (?, ?, ?, ?, ?, ?)
@@ -396,9 +425,27 @@ export async function loadActiveCheckin(eventId: string): Promise<LocalCheckin |
 // Ergebnisabgaben (lokal) + Outbox, in EINER Transaktion.
 // ---------------------------------------------------------------------------
 
-export async function saveResultSubmission(submission: LocalResultSubmission) {
-  const db = await getDb();
-  await db.withTransactionAsync(async () => {
+/**
+ * Speichert eine Ergebnisabgabe samt Outbox-Eintrag in EINER Transaktion und
+ * vergibt dabei die lückenlose lokale Sequenz. Sie wird innerhalb der
+ * Transaktion gelesen und erhöht, damit zwei Abgaben nie dieselbe Nummer
+ * bekommen (der Server lehnt doppelte Nummern dauerhaft ab).
+ */
+export async function saveResultSubmission(
+  submission: Omit<LocalResultSubmission, 'localSequence'>,
+): Promise<number> {
+  let localSequence = 0;
+  await transaction(async (db) => {
+    const state = await db.getFirstAsync<{ next_sequence: number }>(
+      'SELECT next_sequence FROM station_state WHERE event_id = ?',
+      submission.eventId,
+    );
+    const max = await db.getFirstAsync<{ maxseq: number | null }>(
+      'SELECT MAX(local_sequence) AS maxseq FROM local_result_submissions WHERE event_id = ?',
+      submission.eventId,
+    );
+    // Auch bei fehlendem oder zurückgefallenem Zähler nie eine Nummer doppelt vergeben.
+    localSequence = Math.max(state?.next_sequence ?? 1, (max?.maxseq ?? 0) + 1);
     await db.runAsync(
       `INSERT INTO local_result_submissions (
         request_id, event_id, match_id, checkin_id, local_sequence, base_result_version,
@@ -408,7 +455,7 @@ export async function saveResultSubmission(submission: LocalResultSubmission) {
       submission.eventId,
       submission.matchId,
       submission.checkinId,
-      submission.localSequence,
+      localSequence,
       submission.baseResultVersion,
       submission.planVersion,
       JSON.stringify(submission.payload),
@@ -423,12 +470,13 @@ export async function saveResultSubmission(submission: LocalResultSubmission) {
       position,
     );
     await db.runAsync(
-      'UPDATE station_state SET next_sequence = ? WHERE event_id = ? AND next_sequence <= ?',
-      submission.localSequence + 1,
+      `INSERT INTO station_state (event_id, next_sequence) VALUES (?, ?)
+       ON CONFLICT(event_id) DO UPDATE SET next_sequence = excluded.next_sequence`,
       submission.eventId,
-      submission.localSequence,
+      localSequence + 1,
     );
   });
+  return localSequence;
 }
 
 export async function loadResultSubmissions(eventId: string): Promise<LocalResultSubmission[]> {
@@ -462,13 +510,12 @@ export async function loadResultSubmissions(eventId: string): Promise<LocalResul
 }
 
 export async function setSubmissionServerStatus(requestId: string, status: string, version: number | null) {
-  const db = await getDb();
-  await db.runAsync(
+  await serialized((db) => db.runAsync(
     'UPDATE local_result_submissions SET server_status = ?, server_version = ? WHERE request_id = ?',
     status,
     version,
     requestId,
-  );
+  ));
 }
 
 export async function getSubmissionServerStatus(requestId: string): Promise<{ status: string | null; version: number | null } | null> {
@@ -518,50 +565,50 @@ export async function loadOutbox(eventId: string): Promise<OutboxEntry[]> {
 }
 
 export async function markOutboxSending(requestId: string) {
-  const db = await getDb();
-  await db.runAsync('UPDATE local_outbox SET state = ? WHERE request_id = ?', 'sending', requestId);
+  await serialized((db) => db.runAsync('UPDATE local_outbox SET state = ? WHERE request_id = ?', 'sending', requestId));
+}
+
+/** Übernimmt einen späteren Serverstatus (z. B. von der Leitung geklärt). */
+export async function updateReceiptStatus(requestId: string, status: string) {
+  await transaction(async (db) => {
+    await db.runAsync(
+      "UPDATE local_outbox SET receipt_status = ? WHERE request_id = ? AND state = 'received'",
+      status,
+      requestId,
+    );
+    await db.runAsync('UPDATE local_result_submissions SET server_status = ? WHERE request_id = ?', status, requestId);
+  });
+}
+
+/** Setzt einen unterbrochenen Versand (kein Netz) ohne Fehlerzählung zurück. */
+export async function markOutboxPending(requestId: string) {
+  await serialized((db) => db.runAsync(
+    "UPDATE local_outbox SET state = 'pending', last_error = NULL WHERE request_id = ? AND state <> 'received'",
+    requestId,
+  ));
 }
 
 export async function markOutboxReceived(requestId: string, receiptStatus: string) {
-  const db = await getDb();
-  await db.runAsync(
-    'UPDATE local_outbox SET state = ?, receipt_status = ? WHERE request_id = ?',
+  await serialized((db) => db.runAsync(
+    'UPDATE local_outbox SET state = ?, receipt_status = ?, last_error = NULL WHERE request_id = ?',
     'received',
     receiptStatus,
     requestId,
-  );
+  ));
 }
 
 export async function markOutboxFailed(requestId: string, error: string, nextAttemptAt: string) {
-  const db = await getDb();
-  await db.runAsync(
+  await serialized((db) => db.runAsync(
     `UPDATE local_outbox SET state = 'pending', attempt_count = attempt_count + 1,
      last_error = ?, next_attempt_at = ? WHERE request_id = ?`,
     error,
     nextAttemptAt,
     requestId,
-  );
+  ));
 }
 
 export async function countSyncByEvent(eventId: string): Promise<SyncCounts> {
-  const outbox = await loadOutbox(eventId);
-  const submissions = await loadResultSubmissions(eventId);
-  const statusByRequest = new Map(submissions.map((s) => [s.requestId, s]));
-  let pending = 0;
-  let sending = 0;
-  let review = 0;
-  let synced = 0;
-  for (const entry of outbox) {
-    if (entry.kind !== 'result') continue;
-    if (entry.state === 'pending') pending += 1;
-    else if (entry.state === 'sending') sending += 1;
-    else if (entry.state === 'received') {
-      if (entry.receiptStatus === 'accepted') synced += 1;
-      else review += 1;
-    }
-    void statusByRequest;
-  }
-  return { pending, sending, review, synced };
+  return countOutbox(await loadOutbox(eventId));
 }
 
 // ---------------------------------------------------------------------------
@@ -569,15 +616,14 @@ export async function countSyncByEvent(eventId: string): Promise<SyncCounts> {
 // ---------------------------------------------------------------------------
 
 export async function saveDraft(matchId: string, eventId: string, draft: unknown) {
-  const db = await getDb();
-  await db.runAsync(
+  await serialized((db) => db.runAsync(
     `INSERT INTO local_result_drafts (match_id, event_id, draft_json, updated_at) VALUES (?, ?, ?, ?)
      ON CONFLICT(match_id) DO UPDATE SET draft_json = excluded.draft_json, updated_at = excluded.updated_at`,
     matchId,
     eventId,
     JSON.stringify(draft),
     new Date().toISOString(),
-  );
+  ));
 }
 
 export async function loadDraft<T>(matchId: string): Promise<T | null> {
@@ -591,8 +637,7 @@ export async function loadDraft<T>(matchId: string): Promise<T | null> {
 }
 
 export async function clearDraft(matchId: string) {
-  const db = await getDb();
-  await db.runAsync('DELETE FROM local_result_drafts WHERE match_id = ?', matchId);
+  await serialized((db) => db.runAsync('DELETE FROM local_result_drafts WHERE match_id = ?', matchId));
 }
 
 // ---------------------------------------------------------------------------
@@ -620,8 +665,7 @@ function mapLiveStateRow(r: {
 }
 
 export async function saveLiveState(state: LocalLiveState) {
-  const db = await getDb();
-  await db.runAsync(
+  await serialized((db) => db.runAsync(
     `INSERT INTO local_live_states (match_id, event_id, checkin_id, values_json, started, dirty, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(match_id) DO UPDATE SET
@@ -638,7 +682,7 @@ export async function saveLiveState(state: LocalLiveState) {
     state.started ? 1 : 0,
     state.dirty ? 1 : 0,
     state.updatedAt,
-  );
+  ));
 }
 
 export async function loadLiveState(matchId: string): Promise<LocalLiveState | null> {
@@ -685,17 +729,15 @@ export async function loadDirtyLiveStates(eventId: string): Promise<LocalLiveSta
 
 /** Markiert einen Stand nur dann als übertragen, wenn seither nichts Neues kam. */
 export async function markLiveStateSynced(matchId: string, pushedUpdatedAt: string) {
-  const db = await getDb();
-  await db.runAsync(
+  await serialized((db) => db.runAsync(
     'UPDATE local_live_states SET dirty = 0 WHERE match_id = ? AND updated_at = ?',
     matchId,
     pushedUpdatedAt,
-  );
+  ));
 }
 
 export async function clearLiveState(matchId: string) {
-  const db = await getDb();
-  await db.runAsync('DELETE FROM local_live_states WHERE match_id = ?', matchId);
+  await serialized((db) => db.runAsync('DELETE FROM local_live_states WHERE match_id = ?', matchId));
 }
 
 // ---------------------------------------------------------------------------
@@ -729,8 +771,7 @@ function mapTeamVisitRow(r: TeamVisitRow): LocalTeamVisit {
 }
 
 export async function saveTeamVisit(visit: LocalTeamVisit) {
-  const db = await getDb();
-  await db.runAsync(
+  await serialized((db) => db.runAsync(
     `INSERT INTO local_team_visits (participant_id, event_id, match_id, team_id, checkin_id, arrived_at, released_at, dirty, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(participant_id) DO UPDATE SET
@@ -751,7 +792,7 @@ export async function saveTeamVisit(visit: LocalTeamVisit) {
     visit.releasedAt,
     visit.dirty ? 1 : 0,
     visit.updatedAt,
-  );
+  ));
 }
 
 export async function loadTeamVisit(participantId: string): Promise<LocalTeamVisit | null> {
@@ -780,12 +821,11 @@ export async function loadDirtyTeamVisits(eventId: string): Promise<LocalTeamVis
 
 /** Markiert einen Eintrag nur dann als übertragen, wenn seither nichts Neues kam. */
 export async function markTeamVisitSynced(participantId: string, pushedUpdatedAt: string) {
-  const db = await getDb();
-  await db.runAsync(
+  await serialized((db) => db.runAsync(
     'UPDATE local_team_visits SET dirty = 0 WHERE participant_id = ? AND updated_at = ?',
     participantId,
     pushedUpdatedAt,
-  );
+  ));
 }
 
 // ---------------------------------------------------------------------------
@@ -793,8 +833,7 @@ export async function markTeamVisitSynced(participantId: string, pushedUpdatedAt
 // ---------------------------------------------------------------------------
 
 export async function saveToolState(id: string, eventId: string, matchId: string | null, toolKey: string, state: unknown) {
-  const db = await getDb();
-  await db.runAsync(
+  await serialized((db) => db.runAsync(
     `INSERT INTO local_tool_state (id, event_id, match_id, tool_key, state_json, updated_at) VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET state_json = excluded.state_json, updated_at = excluded.updated_at`,
     id,
@@ -803,7 +842,7 @@ export async function saveToolState(id: string, eventId: string, matchId: string
     toolKey,
     JSON.stringify(state),
     new Date().toISOString(),
-  );
+  ));
 }
 
 export async function loadToolState<T>(id: string): Promise<T | null> {

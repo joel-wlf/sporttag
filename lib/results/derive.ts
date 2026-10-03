@@ -1,6 +1,12 @@
 import type { CurrentResultValueRow } from '@/lib/api/live';
 import type { ResultPointRow, ResultSubmissionRow } from '@/lib/api/results';
-import type { BlockRow, MatchParticipantRow, MatchRow, RoundRow, StationSetupRow } from '@/lib/api/schedule';
+import type {
+  BlockRow,
+  MatchParticipantRow,
+  MatchRow,
+  RoundRow,
+  StationSetupRow,
+} from '@/lib/api/schedule';
 import type { EventGameRow } from '@/lib/api/games';
 import type { StationRow } from '@/lib/api/stations';
 import type { TeamRow } from '@/lib/api/teams';
@@ -12,7 +18,8 @@ import type { ResultPayload, ResultPayloadValue } from '@/lib/station/types';
  * Abschnitt 4 und 5). Reine Funktionen, analog zu lib/live/derive.ts.
  */
 
-export type ResultStatus = 'open' | 'accepted' | 'corrected' | 'withdrawn' | 'needs_review' | 'conflict' | 'cancelled';
+export type ResultStatus =
+  'open' | 'accepted' | 'corrected' | 'withdrawn' | 'needs_review' | 'conflict' | 'cancelled';
 
 export const resultStatusLabel: Record<ResultStatus, string> = {
   open: 'Kein Ergebnis',
@@ -82,9 +89,15 @@ export function buildResultRows({
     const participants: ResultRowParticipant[] = matchParticipants
       .filter((p) => p.match_id === match.id)
       .sort((a, b) => a.slot - b.slot)
-      .map((p) => ({ participantId: p.id, team: teams.find((t) => t.id === p.team_id) ?? null, slot: p.slot }));
+      .map((p) => ({
+        participantId: p.id,
+        team: teams.find((t) => t.id === p.team_id) ?? null,
+        slot: p.slot,
+      }));
     const currentValues = currentResultValues.filter((v) => v.match_id === match.id);
-    const openSubmissions = submissions.filter((s) => s.match_id === match.id && (s.status === 'conflict' || s.status === 'needs_review'));
+    const openSubmissions = submissions.filter(
+      (s) => s.match_id === match.id && (s.status === 'conflict' || s.status === 'needs_review'),
+    );
 
     let status: ResultStatus;
     if (match.status === 'cancelled') status = 'cancelled';
@@ -95,19 +108,41 @@ export function buildResultRows({
     else if (match.current_result_version > 1) status = 'corrected';
     else status = 'accepted';
 
-    return { match, round, block, station, game, participants, currentValues, openSubmissions, status };
+    return {
+      match,
+      round,
+      block,
+      station,
+      game,
+      participants,
+      currentValues,
+      openSubmissions,
+      status,
+    };
   });
 }
 
 export function filterResultRows(
   rows: ResultRow[],
-  filter: { status?: ResultStatus | 'all'; stationId?: string | 'all'; teamId?: string | 'all'; roundId?: string | 'all' },
+  filter: {
+    status?: ResultStatus | 'all';
+    stationId?: string | 'all';
+    teamId?: string | 'all';
+    roundId?: string | 'all';
+  },
 ): ResultRow[] {
   return rows.filter((row) => {
     if (filter.status && filter.status !== 'all' && row.status !== filter.status) return false;
-    if (filter.stationId && filter.stationId !== 'all' && row.station?.id !== filter.stationId) return false;
-    if (filter.roundId && filter.roundId !== 'all' && row.round?.id !== filter.roundId) return false;
-    if (filter.teamId && filter.teamId !== 'all' && !row.participants.some((p) => p.team?.id === filter.teamId)) return false;
+    if (filter.stationId && filter.stationId !== 'all' && row.station?.id !== filter.stationId)
+      return false;
+    if (filter.roundId && filter.roundId !== 'all' && row.round?.id !== filter.roundId)
+      return false;
+    if (
+      filter.teamId &&
+      filter.teamId !== 'all' &&
+      !row.participants.some((p) => p.team?.id === filter.teamId)
+    )
+      return false;
     return true;
   });
 }
@@ -118,15 +153,49 @@ function formatMeasuredValue(value: number, unit: string | null): string {
 }
 
 /** Ein Wert aus einer Payload oder aus current_result_values, lesbar dargestellt. */
-function formatEntry(entry: { measured_value: number | null; placement: number | null }, unit: string | null): string {
+function formatEntry(
+  entry: { measured_value: number | null; placement: number | null },
+  unit: string | null,
+): string {
   if (entry.measured_value !== null) return formatMeasuredValue(entry.measured_value, unit);
   if (entry.placement !== null) return `${entry.placement}.`;
   return '–';
 }
 
 /** Kompakte Klartext-Zeile einer Payload, z. B. „Team A 1. · Team B 2.“. */
-export function describePayload(payload: ResultPayload, participants: ResultRowParticipant[], game: EventGameRow | null): string {
+export function describePayload(
+  payload: ResultPayload,
+  participants: ResultRowParticipant[],
+  game: EventGameRow | null,
+): string {
   const unit = game?.unit ?? null;
+  // Mehrteam-Platzierung ohne Messwert: nach Platz gruppiert, z. B.
+  // „1. Orange Otter · 2. Gelbe Bienen, Rote Füchse“.
+  if (participants.length > 2 && payload.values.every((v) => v.measured_value == null && v.placement != null)) {
+    const byPlace = new Map<number, string[]>();
+    for (const p of participants) {
+      const place = payload.values.find((v) => v.participant_id === p.participantId)?.placement;
+      if (place == null) continue;
+      byPlace.set(place, [...(byPlace.get(place) ?? []), p.team?.name ?? 'Unbekannt']);
+    }
+    if (byPlace.size > 0) {
+      return [...byPlace.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([place, names]) => `${place}. ${names.join(', ')}`)
+        .join(' · ');
+    }
+  }
+  // Zweier-Ausgang ohne Messwert: „Sieg Rote Füchse“ statt „Rote Füchse 1. · Gelbe Bienen 2.“.
+  if (game?.measurement_type === 'outcome' && participants.length === 2) {
+    const places = participants.map(
+      (p) => payload.values.find((v) => v.participant_id === p.participantId)?.placement ?? null,
+    );
+    if (places[0] !== null && places[1] !== null) {
+      if (places[0] === places[1]) return 'Unentschieden';
+      const winner = places[0] < places[1] ? participants[0] : participants[1];
+      return `Sieg ${winner.team?.name ?? 'Unbekannt'}`;
+    }
+  }
   const parts = participants.map((p) => {
     const value = payload.values.find((v) => v.participant_id === p.participantId);
     const label = p.team?.name ?? 'Unbekannt';
@@ -169,7 +238,15 @@ export function diffSubmission(
     const current = currentValues.find((v) => v.participant_id === p.participantId);
     const submitted = submissionValues.find((v) => v.participant_id === p.participantId);
     const currentText = current ? formatEntry(current, unit) : '–';
-    const submittedText = submitted ? formatEntry({ measured_value: submitted.measured_value ?? null, placement: submitted.placement ?? null }, unit) : '–';
+    const submittedText = submitted
+      ? formatEntry(
+          {
+            measured_value: submitted.measured_value ?? null,
+            placement: submitted.placement ?? null,
+          },
+          unit,
+        )
+      : '–';
     return {
       participantId: p.participantId,
       teamName: p.team?.name ?? 'Unbekannt',
@@ -180,7 +257,15 @@ export function diffSubmission(
   });
 }
 
-export const resultStatusOrder: ResultStatus[] = ['conflict', 'needs_review', 'open', 'accepted', 'corrected', 'withdrawn', 'cancelled'];
+export const resultStatusOrder: ResultStatus[] = [
+  'conflict',
+  'needs_review',
+  'open',
+  'accepted',
+  'corrected',
+  'withdrawn',
+  'cancelled',
+];
 
 /** Liest eine gespeicherte Payload (Json-Spalte) als ResultPayload, defensiv gegen leere/fremde Formen. */
 export function parsePayload(payload: unknown): ResultPayload {
@@ -197,7 +282,11 @@ export type TeamBreakdownEntry = {
 };
 
 /** Punkte-Aufschlüsselung eines Teams je Match, für den Tabellenplatz-Aufriss. */
-export function buildTeamBreakdown(teamId: string, points: ResultPointRow[], rows: ResultRow[]): TeamBreakdownEntry[] {
+export function buildTeamBreakdown(
+  teamId: string,
+  points: ResultPointRow[],
+  rows: ResultRow[],
+): TeamBreakdownEntry[] {
   return points
     .filter((p) => p.team_id === teamId && p.match_id)
     .map((p) => {

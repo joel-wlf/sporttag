@@ -22,7 +22,16 @@ export default function LoginScreen() {
       password,
     });
     setLoading(false);
-    if (authError) setError(authError.message);
+    if (authError) {
+      // Supabase meldet englisch und technisch; hier zählt, was zu tun ist.
+      setError(
+        authError.message.toLowerCase().includes('invalid login credentials')
+          ? 'E-Mail-Adresse oder Passwort stimmt nicht.'
+          : authError.message.toLowerCase().includes('network') || authError.message.toLowerCase().includes('fetch')
+            ? 'Keine Verbindung. Die Anmeldung braucht Internet.'
+            : authError.message,
+      );
+    }
   };
 
   return (
@@ -58,7 +67,8 @@ export default function LoginScreen() {
           autoComplete="current-password"
           label="Passwort"
           onChangeText={setPassword}
-          onSubmitEditing={signIn}
+          onSubmitEditing={() => void signIn()}
+          returnKeyType="go"
           placeholder="Passwort"
           secureTextEntry
           value={password}
@@ -70,13 +80,20 @@ export default function LoginScreen() {
             </Text>
           </View>
         ) : null}
-        <Button fullWidth isLoading={loading} label="Anmelden" onPress={signIn} size="lg" />
+        <Button
+          fullWidth
+          isDisabled={!email.trim() || !password}
+          isLoading={loading}
+          label="Anmelden"
+          onPress={() => void signIn()}
+          size="lg"
+        />
       </Card>
       <Button
         fullWidth
-        label="Zur Station"
+        label="Stationsgerät mit Code beitreten"
         onPress={() => router.replace('/join')}
-        variant="outline"
+        variant="ghost"
       />
     </Screen>
   );
