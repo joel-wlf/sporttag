@@ -101,6 +101,16 @@ export type PackageMatch = {
   participants: PackageMatchParticipant[];
 };
 
+/**
+ * Spielername je Team für die Anwesenheit an der Station. Nur Name und
+ * Team; Bewertung, Geschlecht und Alter bleiben im Backoffice.
+ */
+export type PackagePlayer = {
+  id: string;
+  team_id: string;
+  name: string;
+};
+
 /** Laufzettel einer Gruppe an einer Station (Ankunft und Weiterschickung). */
 export type PackageTeamVisit = {
   participant_id: string;
@@ -125,6 +135,8 @@ export type StationPackage = {
   server_time: string;
   event: PackageEvent;
   teams: PackageTeam[];
+  /** Fehlt in Paketen, die vor Einführung der Spielerlisten gespeichert wurden. */
+  players?: PackagePlayer[];
   stations: PackageStation[];
   scoring_rules: PackageScoringRule[];
   event_games: PackageGame[];

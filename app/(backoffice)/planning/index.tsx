@@ -11,7 +11,7 @@ const steps: { href: string; icon: IconName; title: string; description: string 
     href: '/planning/teams',
     icon: 'user',
     title: 'Teams',
-    description: 'Feste Teams, Nummern, Farben und Teilnehmerzahlen verwalten.',
+    description: 'Teams und Spieler zusammenstellen, per Ziehen oder automatisch ausgleichen.',
   },
   {
     href: '/planning/games',

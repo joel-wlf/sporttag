@@ -1,6 +1,6 @@
 # Sporttag-App: ER-Modell und Datenkonzept
 
-Stand: 21.09.2026 · Entwurf 4: Supabase-Schema und Realtime-Grundlage
+Stand: 02.10.2026 · Entwurf 4: Supabase-Schema und Realtime-Grundlage, ergänzt um Spieler (Abschnitt 8.8)
 
 Grundlage: `sporttag-app-datenmodell-handover.md`. Die Anforderungen daraus dienen als fachlicher Kontext. Dieses Dokument konzipiert das Modell; es implementiert weder Anwendung noch Datenbank. Mit **Default** markierte Entscheidungen sind Vorschläge, keine bereits bestätigten Anforderungen.
 
@@ -20,7 +20,7 @@ Bestätigt: Spielpunkte unterscheiden sich stark je Spiel. Die Gesamtwertung bas
 
 **Offline ist verpflichtend:** Nach einmaliger Vorbereitung muss der gesamte Sporttagsbetrieb ohne Internet funktionieren, auch über App-Abstürze und Neustarts hinweg. Ergebnisse werden zuerst dauerhaft lokal gespeichert. Sobald Internet verfügbar ist, werden sie automatisch zur zentralen Datenbank übertragen. Ein einziger abschließender Synchronisationsdurchlauf je Erfassungsgerät muss ebenfalls ausreichen. **Bestätigt ist außerdem: Die App erhält Live-Updates über Supabase Realtime.** Realtime bleibt eine Ergänzung zur persistenten Synchronisation und keine Voraussetzung für den Offline-Betrieb.
 
-Weitere Defaults: feste Teams ohne personenbezogene Teilnehmerverwaltung, manuelle Planung, zwei Teams in regulären Matches, eine Gesamtwertung und unmittelbare lokale Ergebnisbestätigung durch Spielleiter. Das Modell unterstützt ausdrücklich auch ein oder mehrere Teams pro Match. Bestätigt ist die freie Konfiguration der Tabellenpunkte im Backoffice; 3/1/0 ist lediglich ein vorbelegbarer Vorschlag.
+Weitere Defaults: feste Teams, manuelle Planung, zwei Teams in regulären Matches, eine Gesamtwertung und unmittelbare lokale Ergebnisbestätigung durch Spielleiter. Das Modell unterstützt ausdrücklich auch ein oder mehrere Teams pro Match. Bestätigt ist die freie Konfiguration der Tabellenpunkte im Backoffice; 3/1/0 ist lediglich ein vorbelegbarer Vorschlag.
 
 ## 2. ER-Diagramm
 
@@ -33,6 +33,9 @@ erDiagram
     EVENTS ||--o{ EVENT_MEMBERSHIPS : berechtigt
     PROFILES ||--o{ GAME_TEMPLATES : verwaltet
     EVENTS ||--o{ TEAMS : umfasst
+    EVENTS ||--o{ PLAYERS : erfasst
+    TEAMS o|--o{ PLAYERS : besetzt
+    PLAYERS ||--o| PLAYER_ATTRIBUTES : bewertet
     EVENTS ||--o{ STATIONS : umfasst
     EVENTS ||--o{ EVENT_GAMES : konfiguriert
     GAME_TEMPLATES o|--o{ EVENT_GAMES : liefert_Vorlage
@@ -117,6 +120,20 @@ erDiagram
         text name
         int number
         text color
+    }
+    PLAYERS {
+        uuid id PK
+        uuid event_id FK
+        uuid team_id FK
+        text name
+        boolean locked
+    }
+    PLAYER_ATTRIBUTES {
+        uuid player_id PK,FK
+        uuid event_id FK
+        text gender
+        smallint skill
+        smallint age
     }
     STATIONS {
         uuid id PK
@@ -302,7 +319,9 @@ Konventionen: Alle `id` sind UUID-Primärschlüssel, sofern anders angegeben. Fr
 | `event_memberships` | Backoffice-Berechtigung: `event_id → events`, `user_id → profiles`, `role` zunächst ausschließlich `organizer`, `active boolean` Default true. UNIQUE `(event_id,user_id)`. Stationsbetreuung wird unabhängig davon geplant. |
 | `game_templates` | Wiederverwendbare Vorlage: `owner_id → profiles`, `name`, `description`, `rules`, `referee_notes`, `materials` als Text; optionale Beschreibungstexte dürfen leer sein. `default_duration_seconds int?`, `measurement_type` (`outcome/number`), `unit text?`, `comparison_direction` (`higher/lower`), `min_teams int` und `max_teams int` Default 2, `allow_ties boolean`, `tools_config jsonb` Default `[]` mit validierten Definitionen für Timer, Stoppuhr und Zähler. Zunächst private Vorlagen des Erstellers. |
 | `event_games` | Historisch eigenständige Spielkopie: `event_id`, `template_id? → game_templates`; alle fachlichen Vorlagenattribute als Kopie, `scoring_rule_id? → scoring_rules` als Überschreibung. Eine Vorlage kann mehrere Varianten in einem Sporttag erzeugen. Dauer ist nur Planungsrichtwert. |
-| `teams` | Feste Teams: `event_id`, `name text`, `number int?`, `color text?`, `participant_count int?`. UNIQUE `(event_id,name)` und `(event_id,number)` für gesetzte Nummern. Keine Personennamen erforderlich. |
+| `teams` | Feste Teams: `event_id`, `name text`, `number int?`, `color text?`, `participant_count int?` (manueller Wert, solange keine Spieler erfasst sind). UNIQUE `(event_id,name)` und `(event_id,number)` für gesetzte Nummern. Spieler sind optional (siehe `players`). |
+| `players` | Spieler der Teamzusammenstellung (bestätigt): `event_id`, `team_id?` → `teams` über `(event_id,team_id)` mit `ON DELETE SET NULL (team_id)` – ein gelöschtes Team gibt seine Spieler in den Pool zurück –, `name text`, `locked boolean` (von der automatischen Verteilung ausgenommen). Lesbar für Organisatoren **und** Stationsgeräte mit Eventzugang (Namensliste für die Anwesenheit), schreibbar nur für Organisatoren. Kein Auth-Bezug, keine Kontaktdaten. |
+| `player_attributes` | Bewertungsdaten je Spieler, 1:1 zu `players` (`ON DELETE CASCADE`): `gender` (`f/m/d`)?, `skill smallint?` 1–6 (6 = sehr stark), `age smallint?`, `notes text?`. **Nur Organisatoren** dürfen lesen und schreiben; Stationsgeräte und das Offline-Paket sehen diese Daten nie. Die Trennung in zwei Tabellen ist nötig, weil Spaltenrechte nicht zwischen Organisatoren und anonymen Gerätesitzungen (beide Rolle `authenticated`) unterscheiden. |
 | `stations` | Fester physischer Ort: `event_id`, `name text`, `location text?`, `notes text?`, `latitude numeric(9,6)`, `longitude numeric(10,6)` in WGS84, `arrival_notes text?`. UNIQUE `(event_id,name)`. Koordinaten gelten über alle Blöcke des Events; kein `game_id`. |
 | `scoring_rules` | Unveränderliche Regel nach Veröffentlichung: `event_id`, `name text`, `mode` (`win_draw_loss/raw_value/placement`), `config jsonb`. Konfiguration hat ein festes Schema pro Modus, keine frei ausführbaren Formeln. |
 | `blocks` | Grobe Zeitstruktur: `event_id`, `name text`, `kind` (`play/break/final/special`), `position int`, `starts_at/ends_at timestamptz`. UNIQUE `(event_id,position)`. Ein Pausenblock hat keine Runden oder Belegungen. |
@@ -468,7 +487,7 @@ Weitere Organisatoren werden über `add_event_organizer(event_id, email)` anhand
 
 ### 8.2 Station-Laufzeit-RPCs (Migration `20260921200000_station_runtime`, Fix `20260921200100`)
 
-`get_station_package(event_id)` liefert das vollständige Offline-Paket als ein konsistentes JSON-Objekt (`security invoker`, ein einzelnes SELECT): Event, Teams, Stationen, Wertungsregeln, Spiele, Blöcke, Runden, Stationsbelegungen, Betreuung (Stations- und Spielzuordnung), Matches mit Teilnahmen und die aktuellen Ergebniswerte. `sync_station_checkin(id, event_id, station_setup_id, device_id, checked_in_at, checked_out_at?, staff_ids[])` ist ein idempotenter Upsert von `station_checkins`/`checkin_staff`, der jeden anderen aktiven Check-in desselben Gerätezugangs beendet, damit höchstens einer gleichzeitig aktiv bleibt.
+`get_station_package(event_id)` liefert das vollständige Offline-Paket als ein konsistentes JSON-Objekt (`security invoker`, ein einzelnes SELECT): Event, Teams, Spielernamen je Team (seit Abschnitt 8.8), Stationen, Wertungsregeln, Spiele, Blöcke, Runden, Stationsbelegungen, Betreuung (Stations- und Spielzuordnung), Matches mit Teilnahmen und die aktuellen Ergebniswerte. `sync_station_checkin(id, event_id, station_setup_id, device_id, checked_in_at, checked_out_at?, staff_ids[])` ist ein idempotenter Upsert von `station_checkins`/`checkin_staff`, der jeden anderen aktiven Check-in desselben Gerätezugangs beendet, damit höchstens einer gleichzeitig aktiv bleibt.
 
 `submit_result` wurde erweitert: Die Autorisierung prüft den *aktuellen* aktiven Gerätezugang des Geräts (nicht zwingend denselben `device_access_id` wie beim ursprünglichen Check-in), damit ein erneuter Codebeitritt nach Sitzungsverlust bestehende Check-ins weiterverwenden kann. Eine Abgabe mit `base_result_version > 0` (eine Korrektur eines bereits vorhandenen Ergebnisses) wird jetzt **immer** als `needs_review` gespeichert und erzeugt keine Revision, unabhängig von der tatsächlichen aktuellen Serverversion — Korrekturen benötigen stets eine Organisatorenbestätigung (Abschnitt 5).
 
@@ -502,6 +521,16 @@ Die frühere Sperre „nur Entwürfe sind bearbeitbar“ ist aufgehoben: Teams, 
 
 `withdraw_result(event_id, match_id, reason)` löscht ein Ergebnis weich: Es schreibt eine leere Revision (ohne `result_values`) mit Pflichtbegründung, setzt `matches.current_result_version` auf die neue Version und öffnet das Match wieder (`status = 'scheduled'`, `actual_ended_at = null`). Das Match zählt damit nicht mehr in der Tabelle, bleibt aber über Revisions- und Abgabehistorie vollständig nachvollziehbar. Nur für Organisatoren. Zusätzlich ist eine erstmalige **manuelle Ergebniseingabe** ohne Begründung möglich; eine Korrektur eines bestehenden Ergebnisses verlangt weiterhin eine Begründung.
 
+### 8.8 Spieler und Teamzusammenstellung (Migration `20261002065649_team_players`)
+
+Der Planungsschritt „Teams“ erfasst Spieler und verteilt sie auf die Teams. `players` hält Name, Teamzugehörigkeit und „fixiert“; `player_attributes` hält Geschlecht, Stärke (1 = schwach … 6 = sehr stark), Alter und Notiz. RLS: `players` ist über `private.has_event_access` lesbar und nur über `private.is_event_organizer` schreibbar; `player_attributes` ist ausschließlich für Organisatoren lesbar und schreibbar. `set_player_teams(event_id, assignments jsonb)` setzt viele Zuordnungen atomar (`[{player_id, team_id|null, locked?}]`), ist `security invoker`, prüft Organisatorrechte und lehnt Teams oder Spieler anderer Veranstaltungen ab; es dient der automatischen Verteilung und dem Leeren der Zuordnung.
+
+`get_station_package` liefert zusätzlich `players` als `[{id, team_id, name}]`, nur für zugeordnete Spieler und ohne Attribute. Das Stationsgerät zeigt die Namen im Match hinter „Namen“ zur Anwesenheitskontrolle; es speichert dazu nichts. Änderungen an Spielern erhöhen bewusst **nicht** `events.plan_version`: `submit_result` wertet eine abweichende Planversion als Konflikt, und eine Umbesetzung am Sporttag soll keine Ergebnisabgaben in Klärung schicken. Geräte laden das Paket ohnehin bei jedem Sync neu; offline bleibt die zuletzt geladene Namensliste gültig.
+
+Die Kennzahlen und Hinweise über den Team-Feldern („Zu schwach“, „Zu stark“, „Zu klein/groß“, „Geschlecht unausgewogen“, „Deutlich jünger/älter“, „x unbewertet“) und die automatische Verteilung sind rein clientseitig (`lib/teams/balance.ts`): Die Teamgröße wird immer ausgeglichen, Stärke, Geschlecht und Alter fließen mit einstellbarem Gewicht ein, fixierte Spieler bleiben stehen; danach verbessert ein Paartausch die Verteilung. Fehlende Werte zählen neutral. Der CSV-Import (`lib/teams/csv.ts`) erkennt Trennzeichen, deutsch/englische Spaltennamen und meldet ungültige Werte je Zeile, statt sie still zu verwerfen.
+
+Datenschutz: Es handelt sich um personenbezogene Daten meist minderjähriger Teilnehmender, Stärkebewertungen eingeschlossen. Sie bleiben im Backoffice; eine Aufbewahrungs- bzw. Löschfrist ist fachlich noch festzulegen (vgl. Abschnitt 7, „Löschung und Aufbewahrung“).
+
 ## 9. Beispiel zur fachlichen Kontrolle
 
 Sporttag 2026 hat sechs Teams und drei Stationen. Block 1 enthält drei Spielrunden. Station 1 ist in diesem Block mit Brennball belegt, im zweiten Block mit einem anderen Spiel.
@@ -516,7 +545,7 @@ Vor einer Implementierungsfreigabe sind insbesondere folgende Datenbanktests erf
 
 | Frage | Vorgeschlagener Default / Konsequenz |
 |---|---|
-| Einzelne Teilnehmer speichern? | Nein; nur Team und optionale Größe. Personen und Teammitgliedschaften erst bei konkretem Bedarf. |
+| Einzelne Teilnehmer speichern? | Bestätigt (Änderung gegenüber dem früheren Default): Spieler mit Name, optional Geschlecht, Stärke 1–6 und Alter werden im Backoffice erfasst, manuell oder per CSV-Import, und manuell oder automatisch auf Teams verteilt. Stationen sehen nur die Namen ihrer Teams. Siehe Abschnitt 8.8. |
 | Teams während des Tags verändern? | Identität und Zusammensetzung bleiben fest; reine Anzeigenamen darf der Organisator korrigieren. |
 | Einzelteam- oder Mehrteamspiele? | Optionale Mehrteamspiele bestätigt, auch mit allen Teams; keine Pflicht zum Abschlussspiel. Reguläre Matches typischerweise zwei Teams. |
 | Spiele wiederholen oder parallel betreiben? | Beides erlaubt. Jede wertungsrelevante Wiederholung zählt; Anzahl und Fairness werden bei Planung geprüft. |

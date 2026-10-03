@@ -130,6 +130,14 @@ export function teamName(pkg: StationPackage, teamId: string) {
   return pkg.teams.find((t) => t.id === teamId)?.name ?? 'Unbekanntes Team';
 }
 
+/** Spielernamen eines Teams, alphabetisch (aus dem Offline-Paket). */
+export function teamRoster(pkg: StationPackage, teamId: string) {
+  return (pkg.players ?? [])
+    .filter((p) => p.team_id === teamId)
+    .map((p) => p.name)
+    .sort((a, b) => a.localeCompare(b, 'de'));
+}
+
 export function staffNotes(pkg: StationPackage, staffId: string) {
   return pkg.event_staff.find((s) => s.id === staffId)?.notes ?? null;
 }

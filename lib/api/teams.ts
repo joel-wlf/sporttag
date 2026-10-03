@@ -51,6 +51,8 @@ export function useDeleteTeam(eventId: string) {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: teamsKey(eventId) });
+      // Spieler des gelöschten Teams fallen per FK zurück in den Pool.
+      void queryClient.invalidateQueries({ queryKey: ['events', eventId, 'players'] });
     },
   });
 }
