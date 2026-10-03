@@ -47,6 +47,8 @@ Der Planungsschritt **Teams** ist jetzt eine Teamzusammenstellung: Teams als Fel
 
 Veröffentlichte und laufende Veranstaltungen bleiben jetzt vollständig bearbeitbar (Teams, Spiele & Wertung, Zeitplan, Einstellungen): Die frühere Sperre ist entfernt, und strukturelle Änderungen erhöhen automatisch `events.plan_version` (Migration `20260922110000_editable_published_events.sql`), damit Geräte das Offline-Paket beim nächsten Sync neu laden; Laufzeit-/Ergebnisänderungen lösen bewusst keine neue Planversion aus. Ergebnisse lassen sich jederzeit korrigieren, erstmalig manuell eintragen oder **weich löschen** (`withdraw_result`, Migration `20260922120000_withdraw_result.sql`): Das Match wird wieder geöffnet und zählt nicht mehr, die Revisions- und Abgabehistorie bleibt erhalten.
 
+Öffentliche Rechtsseiten ohne Login und ohne Veranstaltungscode (Store-Pflicht): `/privacy` (Datenschutzerklärung) und `/support` (Support & Feedback per vorbereiteter E-Mail, die App überträgt selbst nichts) unter `app/(public)/`; die Routenwache lässt diese Gruppe durch. Verlinkt sind sie im Stationsbeitritt und unter Backoffice → Konto. Vor der Store-Einreichung müssen `EXPO_PUBLIC_SUPPORT_EMAIL` und `EXPO_PUBLIC_LEGAL_CONTROLLER` (Name und Anschrift) gesetzt sein (`lib/legal.ts`); der Text ist ein Entwurf und kein Rechtsrat. Für Apple dieselben URLs im Web-Deployment als Datenschutz- bzw. Support-URL eintragen und im App-Store-Connect-Datenschutzprofil „Daten werden nicht zur Nachverfolgung genutzt“ prüfen.
+
 Dieses Grundgerüst ist noch keine für den Offline-Einsatz geprüfte Sporttag-App.
 
 ## Projektstruktur
@@ -96,6 +98,8 @@ Die Vorlage verwendet derzeit diese Variablennamen:
 ```dotenv
 EXPO_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+EXPO_PUBLIC_SUPPORT_EMAIL=support@example.com
+EXPO_PUBLIC_LEGAL_CONTROLLER="Name, Straße Nr., PLZ Ort"
 EXPO_PUBLIC_ASSISTANCE_PHONE=+491234567890
 EXPO_PUBLIC_MEDICAL_PHONE=+491234567890
 ```

@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { View } from 'react-native';
 import { ModuleScreen } from '@/components/layout/ModuleScreen';
 import { Button } from '@/components/ui/Button';
@@ -7,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { useSession } from '@/providers/SessionProvider';
 
 export default function AccountScreen() {
+  const router = useRouter();
   const { session } = useSession();
   const email = session?.user.email ?? 'Unbekannt';
 
@@ -38,6 +40,15 @@ export default function AccountScreen() {
           }}
           variant="outline"
         />
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Rechtliches & Hilfe</CardTitle>
+        </CardHeader>
+        <View className="gap-1">
+          <ListRow icon="shield" onPress={() => router.push('/privacy')} showChevron title="Datenschutzerklärung" />
+          <ListRow icon="headset" onPress={() => router.push('/support')} showChevron title="Support & Feedback" />
+        </View>
       </Card>
     </ModuleScreen>
   );

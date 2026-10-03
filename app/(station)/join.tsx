@@ -162,6 +162,20 @@ export default function StationJoinScreen() {
         >
           <Text className="text-xs font-semibold text-danger">Gerät zurücksetzen</Text>
         </Pressable>
+        <Pressable
+          accessibilityRole="link"
+          className="min-h-[44px] items-center justify-center px-4 active:opacity-60"
+          onPress={() => router.push('/privacy')}
+        >
+          <Text className="text-xs font-semibold text-subtle">Datenschutz</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="link"
+          className="min-h-[44px] items-center justify-center px-4 active:opacity-60"
+          onPress={() => router.push('/support')}
+        >
+          <Text className="text-xs font-semibold text-subtle">Support</Text>
+        </Pressable>
       </View>
     </Screen>
   );

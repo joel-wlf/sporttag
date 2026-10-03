@@ -19,12 +19,14 @@ function RouteGuard() {
   const color = palette(theme);
   const inAuth = segments[0] === '(auth)';
   const inStation = segments[0] === '(station)';
+  // Datenschutz und Support sind öffentlich (Store-Pflicht): kein Login, kein Code.
+  const inPublic = segments[0] === '(public)';
   const inBackoffice = segments[0] === '(backoffice)';
   const isOrganizer = Boolean(session) && !session?.user.is_anonymous;
 
   useEffect(() => {
     if (isLoading) return;
-    if (!session && !inAuth && !inStation) router.replace('/join');
+    if (!session && !inAuth && !inStation && !inPublic) router.replace('/join');
     // Nur eine echte Organisatorensitzung verlässt den Login-Screen
     // automatisch; eine anonyme Stationssitzung soll dort ohne Schleife
     // ein persönliches Konto anmelden können (siehe "Backoffice"-Link
@@ -33,14 +35,14 @@ function RouteGuard() {
     // Das Backoffice ist ausschließlich für persönliche Organisatorenkonten;
     // eine anonyme Stationssitzung darf nicht hinein.
     if (inBackoffice && session && !isOrganizer) router.replace('/login');
-  }, [inAuth, inBackoffice, inStation, isLoading, isOrganizer, router, session]);
+  }, [inAuth, inPublic, inBackoffice, inStation, isLoading, isOrganizer, router, session]);
 
   useEffect(() => {
     if (isOrganizer) void ensureProfile();
   }, [isOrganizer]);
 
   if (isLoading) return <View style={{ flex: 1, justifyContent: 'center', backgroundColor: color.background }}><ActivityIndicator color={color.primary} /></View>;
-  return <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}><Stack.Screen name="(auth)" options={{ headerShown: false }} /><Stack.Screen name="(backoffice)" options={{ headerShown: false }} /><Stack.Screen name="(station)" options={{ headerShown: false }} /></Stack>;
+  return <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}><Stack.Screen name="(auth)" options={{ headerShown: false }} /><Stack.Screen name="(backoffice)" options={{ headerShown: false }} /><Stack.Screen name="(station)" options={{ headerShown: false }} /><Stack.Screen name="(public)" options={{ headerShown: false }} /></Stack>;
 }
 
 export default function RootLayout() {
