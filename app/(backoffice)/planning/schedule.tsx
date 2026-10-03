@@ -7,6 +7,7 @@ import { CellTeamPicker } from '@/components/backoffice/schedule/CellTeamPicker'
 import { CoveragePanel } from '@/components/backoffice/schedule/CoveragePanel';
 import { ScheduleMatrix } from '@/components/backoffice/schedule/ScheduleMatrix';
 import { GamePickerSheet, RowSheet } from '@/components/backoffice/schedule/ScheduleSheets';
+import { PlanVersionNotice } from '@/components/backoffice/PlanVersionNotice';
 import { Header } from '@/components/layout/Header';
 import { Screen } from '@/components/layout/Screen';
 import { Section } from '@/components/layout/Section';
@@ -31,6 +32,8 @@ import {
 } from '@/lib/api/schedule';
 import { type StationRow, useStations } from '@/lib/api/stations';
 import { useTeams } from '@/lib/api/teams';
+import { canExportRunsheets, exportRunsheets } from '@/lib/schedule/exportRunsheets';
+import { buildRunsheets } from '@/lib/schedule/runsheet';
 import {
   autoFill,
   buildMatrix,
@@ -185,6 +188,17 @@ function ScheduleContent() {
   }, [gameSheet, setups]);
 
   const hasPlayRounds = matrix.playRounds.length > 0;
+
+  const exportSheets = async () => {
+    setError(null);
+    try {
+      const runsheets = buildRunsheets({ matrix, teams, stations, gameNames, timeZone });
+      const slug = (event?.name ?? 'sporttag').toLowerCase().replace(/[^a-z0-9äöüß]+/g, '-').replace(/^-|-$/g, '');
+      await exportRunsheets(runsheets, `laufzettel-${slug || 'sporttag'}`);
+    } catch (e) {
+      setError(friendlyErrorMessage(e));
+    }
+  };
   const emptyCells = [...matrix.cells.values()].filter((c) => c.gameId && c.teamIds.length === 0).length;
 
   return (
@@ -194,18 +208,29 @@ function ScheduleContent() {
           <>
             <Button label="Runde" leftIcon="plus" onPress={() => appendRow('play')} variant="outline" />
             <Button isDisabled={!hasPlayRounds} label="Pause" leftIcon="pause" onPress={() => appendRow('break')} variant="outline" />
-            <Button
-              isDisabled={emptyCells === 0 || teams.length < 2}
-              label="Auto-Einteilung"
-              leftIcon="refresh"
-              onPress={() => setProposal(autoFill(matrix, teams, games))}
-            />
+            {canExportRunsheets ? (
+              <Button
+                isDisabled={!hasPlayRounds || teams.length === 0}
+                label="Laufzettel (Excel)"
+                onPress={() => void exportSheets()}
+                variant="outline"
+              />
+            ) : null}
+            {/* Nur anbieten, wenn es leere Zellen zu füllen gibt – kein toter Knopf. */}
+            {emptyCells > 0 && teams.length >= 2 ? (
+              <Button
+                label="Auto-Einteilung"
+                leftIcon="refresh"
+                onPress={() => setProposal(autoFill(matrix, teams, games))}
+              />
+            ) : null}
           </>
         }
         description="Zeilen sind Runden, Spalten sind Stationen. Pausen trennen die Blöcke, in denen jede Station ihr Spiel hat."
         eyebrow="PLANUNG"
         title="Zeitplan & Matches"
       />
+      <PlanVersionNotice />
 
       {error ? (
         <Text accessibilityRole="alert" className="text-[13px] font-semibold text-danger">
@@ -249,7 +274,7 @@ function ScheduleContent() {
           />
           {gameRows.length === 0 ? (
             <View className="items-center pt-2">
-              <Button label="Zu Spiele & Wertung" onPress={() => router.push('/planning/games' as never)} variant="ghost" />
+              <Button label="Zu Spiele & Wertung" onPress={() => router.navigate('/planning/games' as never)} variant="ghost" />
             </View>
           ) : null}
         </Card>
@@ -259,7 +284,7 @@ function ScheduleContent() {
             cellFlags={cellFlags}
             games={games}
             matrix={matrix}
-            onAddStation={() => router.push('/planning/venue' as never)}
+            onAddStation={() => router.navigate('/planning/venue' as never)}
             onPressCell={(roundId, stationId) => {
               setSheetError(null);
               setCellSheet({ roundId, stationId });
